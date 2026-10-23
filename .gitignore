@@ -1,0 +1,38 @@
+# Segredos
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+out/
+npm-debug.log*
+
+# Dados locais
+data/
+backups/
+*.sqlite3
+
+# Sistema
+.DS_Store
+.idea/
+.vscode/
+
+# Playwright
+test-results/
+playwright-report/
+
+# Deploy
+.deployed_tag
+*.tsbuildinfo

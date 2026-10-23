@@ -1,0 +1,32 @@
+{
+	email {$ACME_EMAIL}
+}
+
+(seguranca) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+}
+
+# Painel (com login)
+app.{$DOMAIN} {
+	import seguranca
+	reverse_proxy web:3000
+}
+
+# API
+api.{$DOMAIN} {
+	import seguranca
+	reverse_proxy api:8000
+}
+
+# Microsites públicos de diagnóstico (Fase 5)
+diagnostico.{$DOMAIN} {
+	import seguranca
+	reverse_proxy web:3000
+}

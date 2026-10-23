@@ -1,0 +1,48 @@
+# Sobreposição de produção (VPS Hostinger)
+# Usa imagens prontas do GitHub Container Registry, fecha portas internas
+# e coloca o Caddy (HTTPS automático) na frente.
+
+services:
+  postgres:
+    ports: !reset []
+
+  minio:
+    ports: !reset []
+
+  api:
+    image: ghcr.io/${GHCR_OWNER}/sl-prospecta-api:${IMAGE_TAG:-latest}
+    build: !reset null
+    ports: !reset []
+
+  worker:
+    image: ghcr.io/${GHCR_OWNER}/sl-prospecta-worker:${IMAGE_TAG:-latest}
+    build: !reset null
+
+  web:
+    image: ghcr.io/${GHCR_OWNER}/sl-prospecta-web:${IMAGE_TAG:-latest}
+    build: !reset null
+    ports: !reset []
+
+  n8n:
+    ports: !reset []
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+      - web
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+
+volumes:
+  caddydata:
+  caddyconfig:
