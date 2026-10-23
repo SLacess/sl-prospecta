@@ -37,6 +37,12 @@ ufw --force enable
 echo "==> SSH: somente chave, sem login de root por senha"
 sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
 sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+# Ubuntu cloud images reativam a senha em sshd_config.d/50-cloud-init.conf; o primeiro valor lido vence
+printf 'PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+'   > /etc/ssh/sshd_config.d/00-hardening.conf
+sshd -t
 # Opcional: altere a porta SSH (lembre de liberar no ufw e atualizar o secret VPS_PORT)
 systemctl restart ssh || systemctl restart sshd
 
