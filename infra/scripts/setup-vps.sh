@@ -53,7 +53,6 @@ cat <<EOF
 ✅ VPS pronta.
 Próximos passos (veja infra/DEPLOY.md):
   1. Coloque a chave pública do GitHub Actions em /home/$DEPLOY_USER/.ssh/authorized_keys
-  2. Como $DEPLOY_USER: git clone <seu-repo> $APP_DIR && cd $APP_DIR && cp .env.example .env
-  3. Edite o .env com valores de produção
-  4. docker login ghcr.io (token com permissão read:packages)
+  2. Copie o .env de produção para $APP_DIR/.env (dono $DEPLOY_USER, chmod 600)
+  3. Cadastre os secrets no GitHub e faça push na main — o deploy baixa código e imagens sozinho
 EOF
