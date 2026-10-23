@@ -35,11 +35,12 @@ ssh-keygen -t ed25519 -f slp_deploy -C "github-actions-sl-prospecta" -N ""
 ## 5. Clonar e configurar na VPS
 ```bash
 ssh deploy@IP_DA_VPS
-git clone https://github.com/SEU_USUARIO/sl-prospecta.git /opt/sl-prospecta
 cd /opt/sl-prospecta
-cp .env.example .env
-nano .env
+nano .env          # cole o .env de produção
+chmod 600 .env
 ```
+Não é preciso clonar: o primeiro deploy do GitHub Actions baixa o código e as imagens usando o token
+temporário do próprio workflow (funciona com repositório privado, sem token pessoal na VPS).
 No `.env` de produção, ajuste pelo menos:
 - `ENVIRONMENT=production`
 - `DOMAIN`, `ACME_EMAIL`, `GHCR_OWNER` (seu usuário do GitHub em minúsculas)
@@ -47,10 +48,6 @@ No `.env` de produção, ajuste pelo menos:
 - `JWT_SECRET` e `N8N_ENCRYPTION_KEY` → gere com `openssl rand -hex 32`
 - `NEXT_PUBLIC_API_URL=https://api.SEU_DOMINIO`, `APP_BASE_URL=https://app.SEU_DOMINIO`, `CORS_ORIGINS=https://app.SEU_DOMINIO`
 
-Se o repositório for privado, autentique o Docker no registro do GitHub (token com `read:packages`):
-```bash
-echo SEU_TOKEN | docker login ghcr.io -u SEU_USUARIO --password-stdin
-```
 
 ## 6. Secrets e variáveis no GitHub
 Repositório → **Settings → Secrets and variables → Actions**:
