@@ -37,6 +37,12 @@ ufw --force enable
 echo "==> SSH: somente chave, sem login de root por senha"
 sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
 sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+# Ubuntu cloud images reativam a senha em sshd_config.d/50-cloud-init.conf; o primeiro valor lido vence
+printf 'PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+'   > /etc/ssh/sshd_config.d/00-hardening.conf
+sshd -t
 # Opcional: altere a porta SSH (lembre de liberar no ufw e atualizar o secret VPS_PORT)
 systemctl restart ssh || systemctl restart sshd
 
@@ -53,7 +59,6 @@ cat <<EOF
 ✅ VPS pronta.
 Próximos passos (veja infra/DEPLOY.md):
   1. Coloque a chave pública do GitHub Actions em /home/$DEPLOY_USER/.ssh/authorized_keys
-  2. Como $DEPLOY_USER: git clone <seu-repo> $APP_DIR && cd $APP_DIR && cp .env.example .env
-  3. Edite o .env com valores de produção
-  4. docker login ghcr.io (token com permissão read:packages)
+  2. Copie o .env de produção para $APP_DIR/.env (dono $DEPLOY_USER, chmod 600)
+  3. Cadastre os secrets no GitHub e faça push na main — o deploy baixa código e imagens sozinho
 EOF
