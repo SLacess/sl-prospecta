@@ -28,6 +28,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main id="conteudo" tabIndex={-1}>
           {children}
         </main>
+        <footer className="hint" style={{ textAlign: "center", padding: "2rem 1rem" }}>
+          SL Prospecta v0.1 · Fase 0 — Fundação
+        </footer>
       </body>
     </html>
   );
