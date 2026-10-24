@@ -85,6 +85,9 @@ jobs:
           script: |
             set -e
             cd /opt/sl-prospecta
-            git fetch --quiet origin main
-            git reset --hard origin/main
+            [ -d .git ] || git init -q
+            # Repositório privado: usa o token temporário do workflow (expira ao fim do job)
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            git fetch --quiet "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" main
+            git reset --hard FETCH_HEAD
             ./infra/scripts/deploy.sh "${{ needs.build.outputs.tag }}"
