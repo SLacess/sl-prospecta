@@ -74,6 +74,19 @@ services:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
 
+  # Auditor técnico: Chromium + axe-core, fila própria, no máximo 2 auditorias por vez (CONSTITUICAO §16.2)
+  worker-audit:
+    <<: *app-env
+    build:
+      context: .
+      dockerfile: workers/Dockerfile.audit
+    restart: unless-stopped
+    shm_size: 1gb  # o Chromium usa /dev/shm
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      minio: { condition: service_started }
+
   web:
     build:
       context: ./apps/web

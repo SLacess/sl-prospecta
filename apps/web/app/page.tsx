@@ -13,15 +13,18 @@ import {
   ROTULO_SETOR,
 } from "@/lib/api";
 
+import { AuditoriaTecnica } from "./auditoria-tecnica";
 import { ConfirmarSite } from "./confirmar-site";
 
 /** Intervalo da consulta ao andamento (ADR 0002: consulta periódica em vez de WebSocket na Fase 1). */
 const INTERVALO_MS = 2000;
-const LIMITE_CONSULTAS = 150; // ~5 minutos acompanhando a mesma empresa
+const LIMITE_CONSULTAS = 300; // ~10 minutos: pesquisa + auditoria técnica levam uns 2 a 3 min
 
-/** Eventos depois dos quais não há mais novidade a esperar nesta versão do pipeline (Tarefa 2). */
+/** Eventos depois dos quais não há mais novidade a esperar nesta versão do pipeline (Tarefa 3). */
 const EVENTOS_DE_PARADA = new Set([
-  "dossie_pronto",
+  "auditoria_pronta",
+  "auditoria_bloqueada",
+  "auditoria_falhou",
   "confirmacao_dominio",
   "dominio_ja_cadastrado",
   "site_indisponivel",
@@ -257,6 +260,8 @@ export default function PainelProspeccao() {
               </p>
             </>
           )}
+
+          {detalhe.auditoria && <AuditoriaTecnica auditoria={detalhe.auditoria} />}
           <h3>Linha do tempo</h3>
           <ol className="linha-do-tempo">
             {detalhe.eventos.map((ev) => (

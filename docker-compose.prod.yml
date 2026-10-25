@@ -18,6 +18,11 @@ services:
     image: ghcr.io/${GHCR_OWNER}/sl-prospecta-worker:${IMAGE_TAG:-latest}
     build: !reset null
 
+  worker-audit:
+    image: ghcr.io/${GHCR_OWNER}/sl-prospecta-worker-audit:${IMAGE_TAG:-latest}
+    build: !reset null
+    mem_limit: 3g  # 2 Chromium simultâneos; ajuste se a VPS mudar de plano
+
   web:
     image: ghcr.io/${GHCR_OWNER}/sl-prospecta-web:${IMAGE_TAG:-latest}
     build: !reset null

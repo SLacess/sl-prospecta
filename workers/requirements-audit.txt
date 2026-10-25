@@ -1,0 +1,4 @@
+# Dependências extras do serviço worker-audit (imagem com Chromium)
+-r requirements.txt
+playwright==1.64.1
+minio==7.2.*

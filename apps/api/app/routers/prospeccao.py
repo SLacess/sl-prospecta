@@ -14,7 +14,7 @@ from app.budget import verificar_disjuntor
 from app.db import get_db
 from app.deps import get_current_user, require_role
 from app.domain import Alvo, EntradaInvalida, interpretar_entrada, normalizar_dominio
-from app.models import Dossie, Empresa, EstadoProspect, Evento, Papel, Usuario
+from app.models import Auditoria, Dossie, Empresa, EstadoProspect, Evento, Papel, Usuario
 from app.queue import Fila, FilaIndisponivel, get_fila
 from app.timeline import registrar_evento
 
@@ -23,6 +23,8 @@ router = APIRouter(tags=["prospecção"])
 LIMITE_EVENTOS = 200
 # Estados em que o orquestrador ainda tem trabalho de pesquisa a fazer (Tarefa 2)
 ESTADOS_EM_PESQUISA = (EstadoProspect.novo, EstadoProspect.pesquisando)
+# Estados em que o orquestrador ainda tem trabalho a fazer na Fase 1 (pesquisa e auditoria técnica)
+ESTADOS_EM_PROCESSAMENTO = (*ESTADOS_EM_PESQUISA, EstadoProspect.auditando)
 
 
 class ProspeccaoIn(BaseModel):
@@ -66,9 +68,29 @@ class ConfirmacaoDominioOut(BaseModel):
     candidatos: list[CandidatoDominioOut]
 
 
+class PaginaAuditadaOut(BaseModel):
+    url: str
+    status: str
+    erro: str | None = None
+    problemas: int = 0
+    armadilha_de_foco: bool = False
+    link_pular_conteudo: bool | None = None
+    sem_indicador_de_foco: int = 0
+    rolagem_horizontal_320: bool | None = None
+
+
+class AuditoriaResumoOut(BaseModel):
+    criado_em: datetime
+    nota: int | None
+    totais: dict[str, int]
+    plugins: list[str]
+    paginas: list[PaginaAuditadaOut]
+
+
 class EmpresaDetalheOut(EmpresaOut):
     eventos: list[EventoOut]
     dossie: DossieResumoOut | None
+    auditoria: AuditoriaResumoOut | None
     confirmacao_dominio: ConfirmacaoDominioOut | None
 
 
@@ -150,8 +172,39 @@ def _ultimo_dossie(db: Session, empresa_id: uuid.UUID) -> Dossie | None:
     )
 
 
-def _precisa_pesquisa(db: Session, empresa: Empresa) -> bool:
-    return empresa.estado in ESTADOS_EM_PESQUISA and _ultimo_dossie(db, empresa.id) is None
+def _ultima_auditoria(db: Session, empresa_id: uuid.UUID) -> Auditoria | None:
+    consulta = select(Auditoria).where(Auditoria.empresa_id == empresa_id)
+    return db.scalar(consulta.order_by(Auditoria.criado_em.desc()).limit(1))
+
+
+def _precisa_processamento(db: Session, empresa: Empresa) -> bool:
+    """Ainda falta pesquisa ou auditoria técnica: o orquestrador decide qual etapa retomar."""
+    return empresa.estado in ESTADOS_EM_PROCESSAMENTO and _ultima_auditoria(db, empresa.id) is None
+
+
+def _resumo_auditoria(auditoria: Auditoria) -> AuditoriaResumoOut:
+    paginas = []
+    plugins: set[str] = set()
+    for p in auditoria.paginas_json or []:
+        if p.get("status") != "ok":
+            paginas.append(
+                PaginaAuditadaOut(url=p.get("url", ""), status=p.get("status", "erro"), erro=p.get("erro"))
+            )
+            continue
+        plugins.update(p.get("plugins", []))
+        teclado = p.get("teclado", {})
+        paginas.append(PaginaAuditadaOut(
+            url=p["url"], status="ok", problemas=len(p.get("axe", {}).get("violacoes", [])),
+            armadilha_de_foco=bool(teclado.get("armadilha_de_foco")),
+            link_pular_conteudo=teclado.get("link_pular_conteudo"),
+            sem_indicador_de_foco=teclado.get("sem_indicador_aparente", 0),
+            rolagem_horizontal_320=p.get("responsivo_320", {}).get("rolagem_horizontal"),
+        ))
+    totais = {k: int(v) for k, v in (auditoria.totais_json or {}).items() if isinstance(v, int)}
+    return AuditoriaResumoOut(
+        criado_em=auditoria.criado_em, nota=auditoria.nota, totais=totais, plugins=sorted(plugins),
+        paginas=paginas,
+    )
 
 
 async def _enfileirar(db: Session, fila: Fila, empresa_id: uuid.UUID) -> None:
@@ -191,9 +244,9 @@ async def prospectar(
     if duplicada:
         response.status_code = status.HTTP_200_OK
 
-    # Só entra na fila quem ainda não tem dossiê; o job_id fixo evita processamento em dobro
+    # Só entra na fila quem ainda não tem pesquisa e auditoria; o job_id fixo evita processamento em dobro
     na_fila = False
-    if await run_in_threadpool(_precisa_pesquisa, db, empresa):
+    if await run_in_threadpool(_precisa_processamento, db, empresa):
         await _enfileirar(db, fila, empresa.id)
         na_fila = True
 
@@ -262,6 +315,7 @@ def detalhar_empresa(
     return EmpresaDetalheOut(
         **EmpresaOut.model_validate(empresa).model_dump(), eventos=eventos, dossie=dossie_out,
         confirmacao_dominio=confirmacao,
+        auditoria=_resumo_auditoria(auditoria) if (auditoria := _ultima_auditoria(db, empresa.id)) else None,
     )
 
 

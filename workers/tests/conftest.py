@@ -155,8 +155,22 @@ def config():
     return WorkerConfig()
 
 
+class FilaAuditoriaFalsa:
+    """Imita a fila do worker-audit: guarda os envios e ignora a mesma empresa duas vezes."""
+
+    def __init__(self) -> None:
+        self.enviados: list[uuid.UUID] = []
+
+    async def __call__(self, empresa_id: uuid.UUID) -> bool:
+        if empresa_id in self.enviados:
+            return False
+        self.enviados.append(empresa_id)
+        return True
+
+
 def montar_ctx(engine, ia, site=None, config=None) -> dict:
     return {
+        "enfileirar_auditoria": FilaAuditoriaFalsa(),
         "engine": engine,
         "ia": ia,
         "limitador": LimitadorMemoria(intervalo_s=0),

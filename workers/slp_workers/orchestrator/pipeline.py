@@ -1,13 +1,14 @@
 """Orquestrador do pipeline do prospect (CONSTITUICAO §5 e §7).
 
-Fase 1, Tarefa 2: NOVO → PESQUISANDO e o Pesquisador monta o dossiê. A empresa fica em
-PESQUISANDO com o dossiê pronto; a transição para AUDITANDO entra com o Auditor (Tarefa 3).
+Fase 1: NOVO → PESQUISANDO (o Pesquisador monta o dossiê) → AUDITANDO (o Auditor técnico roda no
+serviço worker-audit, fila própria). A empresa fica em AUDITANDO até a análise com IA da Tarefa 4.
 Os agentes devolvem dados validados; só este módulo grava no banco e na linha do tempo.
 """
 
 import asyncio
 import logging
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -19,7 +20,16 @@ from sqlalchemy import Engine, select, update
 from sqlalchemy.exc import IntegrityError
 
 from slp_workers.agents import researcher
-from slp_workers.db import dossies, empresas, eventos, proxima_versao_dossie, registrar_acao, registrar_evento
+from slp_workers.db import (
+    auditorias,
+    dossies,
+    empresas,
+    eventos,
+    proxima_versao_dossie,
+    registrar_acao,
+    registrar_evento,
+)
+from slp_workers.filas import FILA_AUDITORIA, JOB_AUDITAR_EMPRESA, job_id_auditoria
 from slp_workers.llm import ClienteIA, Consumo, ErroIA
 from slp_workers.orchestrator.budget import requires_ai_budget
 from slp_workers.settings import WorkerConfig, get_config
@@ -31,6 +41,24 @@ log = logging.getLogger("slp_workers.pipeline")
 
 NOVO = "NOVO"
 PESQUISANDO = "PESQUISANDO"
+AUDITANDO = "AUDITANDO"
+
+EnfileirarAuditoria = Callable[[uuid.UUID], Awaitable[bool]]
+
+
+def _enfileirador_redis(redis: Any) -> EnfileirarAuditoria:
+    async def enfileirar(empresa_id: uuid.UUID) -> bool:
+        job = await redis.enqueue_job(
+            JOB_AUDITAR_EMPRESA,
+            str(empresa_id),
+            _job_id=job_id_auditoria(empresa_id),
+            _queue_name=FILA_AUDITORIA,
+        )
+        return job is not None
+
+    return enfileirar
+
+
 MAX_TENTATIVAS_TRANSITORIAS = 3
 
 # Transições automáticas permitidas (CONSTITUICAO §7.1). Mudanças manuais pelo Kanban
@@ -62,6 +90,7 @@ class Dependencias:
     config: WorkerConfig
     resolvedor: Resolvedor = resolver_dns
     transport: httpx.AsyncBaseTransport | None = None
+    enfileirar_auditoria: EnfileirarAuditoria | None = None
 
     @classmethod
     def do_ctx(cls, ctx: dict) -> "Dependencias":
@@ -72,6 +101,8 @@ class Dependencias:
             config=ctx.get("config") or get_config(),
             resolvedor=ctx.get("resolvedor", resolver_dns),
             transport=ctx.get("transport"),
+            enfileirar_auditoria=ctx.get("enfileirar_auditoria")
+            or (_enfileirador_redis(ctx["redis"]) if "redis" in ctx else None),
         )
 
 
@@ -129,6 +160,11 @@ class Pesquisa:
                 conn.scalar(select(dossies.c.id).where(dossies.c.empresa_id == self.empresa_id).limit(1))
                 is not None
             )
+
+    def _tem_auditoria(self) -> bool:
+        with self.deps.engine.connect() as conn:
+            consulta = select(auditorias.c.id).where(auditorias.c.empresa_id == self.empresa_id).limit(1)
+            return conn.scalar(consulta) is not None
 
     def _ultimo_evento(self) -> str | None:
         with self.deps.engine.connect() as conn:
@@ -279,13 +315,25 @@ class Pesquisa:
         versao = await asyncio.to_thread(self._gravar_dossie, dados, validado)
         await self.evento(
             "dossie_pronto",
-            "Dossiê pronto. A auditoria de acessibilidade entra na próxima versão.",
+            "Dossiê pronto.",
             versao=versao,
             informacoes_descartadas=removidos,
             custo_brl=str(self.gasto.custo_brl),
         )
 
     # --- fluxo ------------------------------------------------------------
+
+    async def _encaminhar_auditoria(self, estado: str) -> str:
+        """Dossiê pronto: PESQUISANDO → AUDITANDO e a empresa entra na fila do worker-audit."""
+        if await asyncio.to_thread(self._tem_auditoria):
+            return "ja_auditada"
+        if estado == PESQUISANDO:
+            await asyncio.to_thread(self._transitar, PESQUISANDO, AUDITANDO)
+        if self.deps.enfileirar_auditoria is None:
+            raise RuntimeError("fila de auditoria não configurada")
+        if await self.deps.enfileirar_auditoria(self.empresa_id):
+            await self.evento("auditoria_enfileirada", "Na fila da auditoria técnica de acessibilidade.")
+        return "auditoria_enfileirada"
 
     async def executar(self) -> str:
         empresa = await asyncio.to_thread(self._carregar)
@@ -295,10 +343,12 @@ class Pesquisa:
         if empresa.estado == NOVO:
             if await asyncio.to_thread(self._transitar, NOVO, PESQUISANDO):
                 await self.evento("pesquisa_iniciada", "Pesquisa iniciada.")
+        elif empresa.estado == AUDITANDO:
+            return await self._encaminhar_auditoria(AUDITANDO)
         elif empresa.estado != PESQUISANDO:
             return "ignorado"
         if await asyncio.to_thread(self._tem_dossie):
-            return "ja_pesquisada"
+            return await self._encaminhar_auditoria(PESQUISANDO)
 
         dominio = empresa.dominio
         if not dominio:
@@ -318,7 +368,7 @@ class Pesquisa:
         if not paginas:
             return "site_indisponivel"
         await self._montar_dossie(dominio, empresa.nome, paginas)
-        return "dossie_pronto"
+        return await self._encaminhar_auditoria(PESQUISANDO)
 
 
 @requires_ai_budget

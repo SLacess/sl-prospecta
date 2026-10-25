@@ -90,11 +90,11 @@ def _rodar_worker(max_jobs: int = 1) -> None:
     asyncio.run(_rodar())
 
 
-def _agendado_para_ms(job_id: str) -> float | None:
+def _agendado_para_ms(job_id: str, fila: str = "arq:queue") -> float | None:
     async def _ler():
         pool = await create_pool(RedisSettings.from_dsn(os.environ["REDIS_URL"]))
         try:
-            return await pool.zscore("arq:queue", job_id)
+            return await pool.zscore(fila, job_id)
         finally:
             await pool.aclose()
 
@@ -122,8 +122,8 @@ def test_site_informado_vira_dossie(client, headers):
     detalhe = _detalhe(client, headers, empresa_id)
     tipos = [e["tipo"] for e in detalhe["eventos"]]
     assert tipos[:3] == ["entrada_recebida", "enfileirado", "pesquisa_iniciada"]
-    assert tipos[-1] == "dossie_pronto"
-    assert detalhe["estado"] == "PESQUISANDO"
+    assert tipos[-2:] == ["dossie_pronto", "auditoria_enfileirada"]
+    assert detalhe["estado"] == "AUDITANDO"
     assert detalhe["nome"] == "Hospital do Fluxo"
     assert detalhe["dossie"]["setor"] == "saude"
     assert len(detalhe["dossie"]["resumo"]) == 5
@@ -132,11 +132,16 @@ def test_site_informado_vira_dossie(client, headers):
     custo_depois = Decimal(client.get("/governanca/disjuntores", headers=headers).json()["custo"]["custo_hoje_brl"])
     assert custo_depois - custo_antes == Decimal("0.30")
 
-    # Mesma empresa por outra forma do endereço: deduplica e não volta para a fila (já tem dossiê)
+    # A auditoria entrou na fila do worker-audit (fila própria no Redis)
+    assert _agendado_para_ms(f"auditar_empresa:{empresa_id}", "arq:queue:auditoria") is not None
+
+    # Mesma empresa por outra forma do endereço: deduplica sem refazer a pesquisa
     r2 = client.post("/prospeccao", json={"alvo": f"WWW.{dominio.upper()}"}, headers=headers)
     assert r2.status_code == 200
     assert r2.json()["duplicada"] is True
-    assert r2.json()["na_fila"] is False
+    # Ainda sem auditoria, a reentrada volta ao orquestrador, que não duplica a auditoria já na fila
+    _rodar_worker()
+    assert _tipos(client, headers, empresa_id).count("auditoria_enfileirada") == 1
 
 
 def test_nome_ambiguo_espera_o_vendedor_confirmar_o_site(client, headers):

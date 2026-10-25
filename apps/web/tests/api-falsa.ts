@@ -38,8 +38,57 @@ export const EVENTOS_FINAIS = [
   evento(4, "lendo_pagina", "Lendo a página inicial de hospitalexemplo.com.br."),
   evento(5, "lendo_pagina", "Lendo página 2 de 3: /quem-somos"),
   evento(6, "analisando", "Analisando 3 página(s) para montar o dossiê."),
-  evento(7, "dossie_pronto", "Dossiê pronto. A auditoria de acessibilidade entra na próxima versão."),
+  evento(7, "dossie_pronto", "Dossiê pronto."),
+  evento(8, "auditoria_enfileirada", "Na fila da auditoria técnica de acessibilidade."),
+  evento(9, "auditoria_iniciada", "Auditoria técnica de hospitalexemplo.com.br iniciada."),
+  evento(10, "auditando_pagina", "Auditando hospitalexemplo.com.br — página 1 de 3: /"),
+  evento(
+    11,
+    "auditoria_pronta",
+    "Auditoria técnica pronta: 2 página(s) testada(s); problemas automáticos: 2 crítico(s), 1 grave(s), " +
+      "0 moderado(s), 0 leve(s). Plugin de acessibilidade detectado: UserWay. " +
+      "A nota e os achados explicados entram na próxima versão.",
+  ),
 ];
+
+export const AUDITORIA = {
+  criado_em: "2026-10-24T13:03:00Z",
+  nota: null,
+  totais: { critico: 2, grave: 1, moderado: 0, leve: 0, paginas_auditadas: 2 },
+  plugins: ["UserWay"],
+  paginas: [
+    {
+      url: "https://hospitalexemplo.com.br/",
+      status: "ok",
+      erro: null,
+      problemas: 2,
+      armadilha_de_foco: false,
+      link_pular_conteudo: false,
+      sem_indicador_de_foco: 3,
+      rolagem_horizontal_320: true,
+    },
+    {
+      url: "https://hospitalexemplo.com.br/contato",
+      status: "ok",
+      erro: null,
+      problemas: 1,
+      armadilha_de_foco: true,
+      link_pular_conteudo: true,
+      sem_indicador_de_foco: 0,
+      rolagem_horizontal_320: false,
+    },
+    {
+      url: "https://hospitalexemplo.com.br/trabalhe-conosco",
+      status: "bloqueada",
+      erro: "o robots.txt do site não permite a leitura automática desta página",
+      problemas: 0,
+      armadilha_de_foco: false,
+      link_pular_conteudo: null,
+      sem_indicador_de_foco: 0,
+      rolagem_horizontal_320: null,
+    },
+  ],
+};
 
 export const DOSSIE = {
   versao: 1,
@@ -61,12 +110,13 @@ export interface Detalhe {
   dominio?: string | null;
   nome?: string;
   dossie?: unknown;
+  auditoria?: unknown;
   confirmacao_dominio?: unknown;
 }
 
 export const ANDAMENTO_PADRAO: Detalhe[] = [
   { eventos: EVENTOS_INICIAIS },
-  { eventos: EVENTOS_FINAIS, estado: "PESQUISANDO", dossie: DOSSIE },
+  { eventos: EVENTOS_FINAIS, estado: "AUDITANDO", dossie: DOSSIE, auditoria: AUDITORIA },
 ];
 
 export const CANDIDATOS = [
@@ -165,7 +215,7 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
     if (url.pathname === `/empresas/${EMPRESA.id}`) {
       const atual = andamento[Math.min(consulta, andamento.length - 1)];
       consulta += 1;
-      return json(route, 200, { ...EMPRESA, dossie: null, confirmacao_dominio: null, ...atual });
+      return json(route, 200, { ...EMPRESA, dossie: null, auditoria: null, confirmacao_dominio: null, ...atual });
     }
     return json(route, 404, { detail: "não simulado" });
   });

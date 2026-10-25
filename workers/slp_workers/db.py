@@ -69,6 +69,18 @@ dossies = Table(
     Column("criado_em", DateTime(timezone=True)),
 )
 
+auditorias = Table(
+    "auditorias", metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("empresa_id", Uuid, ForeignKey("empresas.id")),
+    Column("nota", Integer),
+    Column("totais_json", JSON),
+    Column("achados_json", JSON),
+    Column("paginas_json", JSON),
+    Column("artefatos_urls", JSON),
+    Column("criado_em", DateTime(timezone=True)),
+)
+
 acoes_agentes = Table(
     "acoes_agentes", metadata,
     Column("id", Uuid, primary_key=True),

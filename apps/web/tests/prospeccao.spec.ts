@@ -39,7 +39,7 @@ test("prospecção só com teclado anuncia o andamento no status", async ({ page
   await expect(page.locator(".resumo")).toContainText("Saúde");
 
   // Estado em texto, não só cor; o foco volta ao campo, vazio para a próxima empresa
-  await expect(page.locator(".resumo")).toContainText("Pesquisando");
+  await expect(page.locator(".resumo")).toContainText("Auditando");
   await expect(page.locator("#alvo")).toBeFocused();
   await expect(page.locator("#alvo")).toHaveValue("");
 });
@@ -163,4 +163,25 @@ test("custo de IA do dia aparece abaixo do formulário", async ({ page }) => {
   await prepararPainel(page);
   await page.goto("/");
   await expect(page.locator(".custo-dia")).toHaveText("Custo de IA hoje: R$ 4,10 de R$ 30,00.");
+});
+
+test("cartão da auditoria técnica mostra gravidade em texto e as páginas testadas", async ({ page }) => {
+  await prepararPainel(page);
+  await page.goto("/");
+  await page.getByLabel("Nome da empresa ou site").fill("hospitalexemplo.com.br");
+  await page.getByRole("button", { name: "Prospectar" }).click();
+
+  const cartao = page.getByRole("region", { name: "Auditoria técnica" });
+  await expect(cartao).toBeVisible();
+  await expect(cartao.locator(".totais-auditoria")).toContainText("Crítico2");
+  await expect(cartao.locator(".totais-auditoria")).toContainText("Grave1");
+  await expect(cartao).toContainText("Plugin de acessibilidade já instalado: UserWay.");
+  await expect(cartao).toContainText("encontram só parte das barreiras");
+
+  const tabela = cartao.getByRole("table", { name: "Páginas testadas" });
+  await expect(tabela.getByRole("row")).toHaveCount(4);
+  await expect(tabela.getByRole("row", { name: /^\/ / })).toContainText("sem link “pular para o conteúdo”");
+  await expect(tabela.getByRole("row", { name: /^\/ / })).toContainText("rolagem horizontal");
+  await expect(tabela.getByRole("row", { name: /contato/ })).toContainText("armadilha de foco");
+  await expect(tabela.getByRole("row", { name: /trabalhe-conosco/ })).toContainText("Não testada: o robots.txt");
 });

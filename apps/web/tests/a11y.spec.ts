@@ -30,6 +30,7 @@ test("sem violações com o andamento ao vivo na tela", async ({ page }) => {
   await page.getByRole("button", { name: "Prospectar" }).click();
   await expect(page.locator(".linha-do-tempo li")).toHaveCount(EVENTOS_FINAIS.length);
   await expect(page.locator(".resumo-dossie li")).toHaveCount(5);
+  await expect(page.getByRole("table", { name: "Páginas testadas" })).toBeVisible();
   await semViolacoes(page);
 });
 

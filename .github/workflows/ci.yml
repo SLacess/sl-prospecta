@@ -45,6 +45,20 @@ jobs:
       - run: python -c "import slp_workers.main as m; assert m.WorkerSettings.functions"
       - run: pytest -q
 
+  auditor:
+    name: Auditor (navegador real)
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright/python:v1.64.1-noble
+    defaults:
+      run:
+        working-directory: workers
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -r requirements-dev.txt
+      - run: python scripts/baixar_axe.py vendor/axe.min.js
+      - name: Site de exemplo com barreiras conhecidas (Chromium + axe-core)
+        run: AUDIT_BROWSER_TESTS=1 python -m pytest -q tests/test_auditor_navegador.py
+
   fluxo:
     name: Fluxo API → fila → worker (Postgres + Redis reais)
     runs-on: ubuntu-latest

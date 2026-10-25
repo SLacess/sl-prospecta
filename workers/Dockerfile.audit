@@ -1,0 +1,23 @@
+# Serviço worker-audit: Auditor técnico com Chromium (CONSTITUICAO §8.1, §8.4, §16.2)
+# Contexto de build: raiz do repositório
+FROM mcr.microsoft.com/playwright/python:v1.64.1-noble
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+COPY workers/requirements.txt workers/requirements-audit.txt ./
+RUN pip install -r requirements-audit.txt
+
+# axe-core com versão e integridade fixadas (mesma do painel)
+COPY workers/scripts/baixar_axe.py ./scripts/baixar_axe.py
+RUN python scripts/baixar_axe.py /app/vendor/axe.min.js
+
+COPY workers/slp_workers ./slp_workers
+COPY packages ./packages
+
+USER pwuser
+
+CMD ["arq", "slp_workers.main_audit.AuditWorkerSettings"]

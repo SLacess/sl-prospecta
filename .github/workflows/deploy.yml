@@ -35,6 +35,9 @@ jobs:
           - name: worker
             context: .
             file: workers/Dockerfile
+          - name: worker-audit
+            context: .
+            file: workers/Dockerfile.audit
           - name: web
             context: apps/web
             file: apps/web/Dockerfile
