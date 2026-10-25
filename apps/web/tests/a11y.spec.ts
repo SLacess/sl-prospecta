@@ -31,6 +31,8 @@ test("sem violações com o andamento ao vivo na tela", async ({ page }) => {
   await expect(page.locator(".linha-do-tempo li")).toHaveCount(EVENTOS_FINAIS.length);
   await expect(page.locator(".resumo-dossie li")).toHaveCount(5);
   await expect(page.getByRole("table", { name: "Páginas testadas" })).toBeVisible();
+  await expect(page.locator(".achados > li")).toHaveCount(2);
+  await page.getByText("Ver trecho do código").first().click();
   await semViolacoes(page);
 });
 

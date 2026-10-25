@@ -52,7 +52,8 @@ def site(porta_segredo: int) -> dict[str, tuple[int, str, str]]:
                 MENU + '<main><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="40" height="40">'
                 '<p style="color:#bbb;background:#fff">Texto com pouco contraste</p>'
                 '<div style="width:900px">Faixa larga demais para celular</div>'
-                "<button>Inscreva-se</button></main>",
+                "<button>Inscreva-se</button>"
+                '<h1>Faculdade Exemplo</h1><h3>Notícias</h3><a href="/noticia">Saiba mais</a></main>',
                 cabeca='<style>*:focus{outline:none}</style><script src="https://cdn.userway.org/widget.js"></script>',
             ),
         ),
@@ -193,6 +194,14 @@ def test_home_tem_as_barreiras_plantadas(auditoria):
     assert home["teclado"]["sem_indicador_aparente"] >= 1
     assert home["responsivo_320"]["rolagem_horizontal"] is True
     assert home["responsivo_320"]["estouram"]
+    # Camada semântica sem IA (Tarefa 4)
+    assert [link["texto"] for link in home["semantica"]["links_genericos"]] == ["Saiba mais"]
+    assert home["semantica"]["saltos_de_titulo"] == [{"de": "h1", "para": "h3", "texto": "Notícias"}]
+
+
+def test_pagina_correta_nao_tem_sinal_semantico(auditoria):
+    cursos = _pagina(auditoria[0], "/cursos")
+    assert cursos["semantica"] == {"links_genericos": [], "saltos_de_titulo": []}
 
 
 def test_contato_tem_campos_sem_rotulo_e_armadilha_de_foco(auditoria):

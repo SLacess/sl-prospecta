@@ -39,7 +39,7 @@ test("prospecção só com teclado anuncia o andamento no status", async ({ page
   await expect(page.locator(".resumo")).toContainText("Saúde");
 
   // Estado em texto, não só cor; o foco volta ao campo, vazio para a próxima empresa
-  await expect(page.locator(".resumo")).toContainText("Auditando");
+  await expect(page.locator(".resumo")).toContainText("Qualificando");
   await expect(page.locator("#alvo")).toBeFocused();
   await expect(page.locator("#alvo")).toHaveValue("");
 });
@@ -171,12 +171,12 @@ test("cartão da auditoria técnica mostra gravidade em texto e as páginas test
   await page.getByLabel("Nome da empresa ou site").fill("hospitalexemplo.com.br");
   await page.getByRole("button", { name: "Prospectar" }).click();
 
-  const cartao = page.getByRole("region", { name: "Auditoria técnica" });
+  const cartao = page.getByRole("region", { name: "Auditoria de acessibilidade" });
   await expect(cartao).toBeVisible();
   await expect(cartao.locator(".totais-auditoria")).toContainText("Crítico2");
   await expect(cartao.locator(".totais-auditoria")).toContainText("Grave1");
   await expect(cartao).toContainText("Plugin de acessibilidade já instalado: UserWay.");
-  await expect(cartao).toContainText("encontram só parte das barreiras");
+  await expect(cartao).toContainText("encontram só parte");
 
   const tabela = cartao.getByRole("table", { name: "Páginas testadas" });
   await expect(tabela.getByRole("row")).toHaveCount(4);
@@ -184,4 +184,31 @@ test("cartão da auditoria técnica mostra gravidade em texto e as páginas test
   await expect(tabela.getByRole("row", { name: /^\/ / })).toContainText("rolagem horizontal");
   await expect(tabela.getByRole("row", { name: /contato/ })).toContainText("armadilha de foco");
   await expect(tabela.getByRole("row", { name: /trabalhe-conosco/ })).toContainText("Não testada: o robots.txt");
+});
+
+test("análise mostra nota, achados para leigos e plugin separado do código", async ({ page }) => {
+  await prepararPainel(page);
+  await page.goto("/");
+  await page.getByLabel("Nome da empresa ou site").fill("hospitalexemplo.com.br");
+  await page.getByRole("button", { name: "Prospectar" }).click();
+
+  const cartao = page.getByRole("region", { name: "Auditoria de acessibilidade" });
+  await expect(cartao.locator(".nota")).toHaveText("58 de 100");
+  const achados = cartao.locator(".achados > li");
+  await expect(achados).toHaveCount(2);
+  await expect(achados.first()).toContainText("Formulário de contato não diz");
+  await expect(achados.first()).toContainText("Quem é afetado: pessoas cegas, pessoas com baixa visão");
+  await expect(achados.first()).toContainText("Critério WCAG 1.3.1 / 4.1.2");
+
+  // O trecho de código fica recolhido e abre pelo teclado
+  await achados.first().getByText("Ver trecho do código").focus();
+  await page.keyboard.press("Enter");
+  await expect(achados.first().locator("code")).toHaveText('<input type="text" id="nome">');
+
+  await expect(cartao.getByRole("heading", { name: "O que o plugin ajuda a resolver" })).toBeVisible();
+  await expect(cartao).toContainText("contraste de cores");
+  await expect(cartao.getByRole("heading", { name: "O que exige ajuste no código" })).toBeVisible();
+  await expect(cartao).toContainText("campos de formulário sem rótulo");
+  await expect(cartao).toContainText("Indícios nos prints (a confirmar)");
+  await expect(cartao.locator(".observacao")).toContainText("encontram só parte das barreiras");
 });

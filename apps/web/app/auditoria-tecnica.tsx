@@ -1,4 +1,4 @@
-import type { AuditoriaResumo, PaginaAuditada } from "@/lib/api";
+import type { AnaliseAuditoria, AuditoriaResumo, PaginaAuditada } from "@/lib/api";
 
 const GRAVIDADES: [string, string][] = [
   ["critico", "Crítico"],
@@ -6,6 +6,14 @@ const GRAVIDADES: [string, string][] = [
   ["moderado", "Moderado"],
   ["leve", "Leve"],
 ];
+
+const TIPO_INDICIO: Record<string, string> = {
+  texto_em_imagem: "Texto dentro de imagem",
+  informacao_so_por_cor: "Informação só por cor",
+  captcha_visual: "CAPTCHA visual",
+  video_sem_legenda_aparente: "Vídeo sem legenda aparente",
+  outro: "Outro",
+};
 
 function caminho(url: string): string {
   try {
@@ -23,19 +31,107 @@ function resumoTeclado(p: PaginaAuditada): string {
   return itens.length ? itens.join("; ") : "nenhum problema detectado";
 }
 
-/**
- * Resultado bruto do Auditor técnico (CONSTITUICAO §8.1). Gravidade sempre em texto, nunca só por cor;
- * aviso de honestidade técnica (§2.2) fixo no cartão.
- */
-export function AuditoriaTecnica({ auditoria }: { auditoria: AuditoriaResumo }) {
+function Analise({ nota, analise }: { nota: number; analise: AnaliseAuditoria }) {
   return (
-    <section aria-labelledby="titulo-auditoria" className="auditoria">
-      <h3 id="titulo-auditoria">Auditoria técnica</h3>
+    <>
+      <p className="nota">
+        <span className="nota-numero">{nota}</span> <span>de 100</span>
+      </p>
       <p className="hint">
-        Testes automáticos (axe-core, navegação por teclado e tela de 320 px) encontram só parte das barreiras de
-        acessibilidade. A nota e os achados explicados para leigos entram na próxima etapa.
+        Nota automática: parte de 100 e desconta pontos por problema encontrado, conforme a gravidade.
       </p>
 
+      {analise.top3_para_leigos.length > 0 && (
+        <>
+          <h4>Principais achados</h4>
+          <ol className="achados">
+            {analise.top3_para_leigos.map((a) => (
+              <li key={`${a.pagina}-${a.titulo}`}>
+                <p className="achado-titulo">{a.titulo}</p>
+                <p>{a.impacto_humano}</p>
+                <p className="hint">
+                  Quem é afetado: {a.quem_e_afetado.join(", ")} · Página: {a.pagina} · Critério WCAG{" "}
+                  {a.criterio_wcag}
+                </p>
+                {a.trecho_html && (
+                  <details>
+                    <summary>Ver trecho do código</summary>
+                    <pre>
+                      <code>{a.trecho_html}</code>
+                    </pre>
+                  </details>
+                )}
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+
+      <div className="duas-colunas">
+        <div>
+          <h4>O que o plugin ajuda a resolver</h4>
+          {analise.plugin_resolve_parcialmente.length ? (
+            <ul>
+              {analise.plugin_resolve_parcialmente.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="hint">Nenhum dos problemas encontrados.</p>
+          )}
+          <p className="hint">Ajuda parcial: o plugin oferece recursos ao visitante, mas não corrige o site.</p>
+        </div>
+        <div>
+          <h4>O que exige ajuste no código</h4>
+          {analise.exige_ajuste_no_codigo.length ? (
+            <ul>
+              {analise.exige_ajuste_no_codigo.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="hint">Nenhum dos problemas encontrados.</p>
+          )}
+        </div>
+      </div>
+
+      {analise.indicios_visuais.length > 0 && (
+        <>
+          <h4>Indícios nos prints (a confirmar)</h4>
+          <ul>
+            {analise.indicios_visuais.map((i) => (
+              <li key={`${i.pagina}-${i.descricao}`}>
+                <strong>{TIPO_INDICIO[i.tipo] ?? i.tipo}:</strong> {i.descricao} ({caminho(i.pagina)})
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      <p className="observacao">{analise.observacao_honestidade}</p>
+    </>
+  );
+}
+
+/**
+ * Auditoria de acessibilidade (CONSTITUICAO §8.1 e §8.2): nota, achados para leigos, plugin × código e o
+ * resultado técnico. Gravidade sempre em texto, nunca só por cor; aviso de honestidade técnica (§2.2) fixo.
+ */
+export function AuditoriaTecnica({ auditoria }: { auditoria: AuditoriaResumo }) {
+  const analisada = auditoria.nota !== null && auditoria.analise !== null;
+  return (
+    <section aria-labelledby="titulo-auditoria" className="auditoria">
+      <h3 id="titulo-auditoria">Auditoria de acessibilidade</h3>
+      {analisada ? (
+        <Analise nota={auditoria.nota as number} analise={auditoria.analise as AnaliseAuditoria} />
+      ) : (
+        <p className="hint">
+          Testes automáticos (axe-core, navegação por teclado e tela de 320 px) encontram só parte das barreiras de
+          acessibilidade. A nota e os achados explicados para leigos vêm em seguida.
+        </p>
+      )}
+
+      <h4>Resultado técnico</h4>
       <dl className="totais-auditoria">
         {GRAVIDADES.map(([chave, rotulo]) => (
           <div key={chave}>

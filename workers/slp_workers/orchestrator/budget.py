@@ -78,12 +78,19 @@ def requires_ai_budget(job: JobIA) -> JobIA:
             espera = segundos_ate_reabrir()
             log.warning(
                 "disjuntor de custo atingido (R$ %s de R$ %s): %s adiado por %ss",
-                disjuntor.custo_hoje_brl, disjuntor.teto_brl, job.__name__, espera,
+                disjuntor.custo_hoje_brl,
+                disjuntor.teto_brl,
+                job.__name__,
+                espera,
             )
             await asyncio.to_thread(
-                registrar_evento, engine, uuid.UUID(empresa_id), "fila_pausada_custo",
+                registrar_evento,
+                engine,
+                uuid.UUID(empresa_id),
+                "fila_pausada_custo",
                 "Teto diário de IA atingido: o processamento continua quando o orçamento reabrir.",
-                custo_hoje_brl=str(disjuntor.custo_hoje_brl), teto_brl=str(disjuntor.teto_brl),
+                custo_hoje_brl=str(disjuntor.custo_hoje_brl),
+                teto_brl=str(disjuntor.teto_brl),
                 adiado_por_s=espera,
             )
             raise Retry(defer=espera)

@@ -1,0 +1,245 @@
+{
+  "$defs": {
+    "AchadoParaLeigos": {
+      "properties": {
+        "titulo": {
+          "title": "Titulo",
+          "type": "string"
+        },
+        "impacto_humano": {
+          "title": "Impacto Humano",
+          "type": "string"
+        },
+        "quem_e_afetado": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Quem E Afetado",
+          "type": "array"
+        },
+        "criterio_wcag": {
+          "title": "Criterio Wcag",
+          "type": "string"
+        },
+        "evidencia": {
+          "$ref": "#/$defs/Evidencia"
+        },
+        "pagina": {
+          "title": "Pagina",
+          "type": "string"
+        },
+        "pagina_url": {
+          "title": "Pagina Url",
+          "type": "string"
+        },
+        "problema": {
+          "title": "Problema",
+          "type": "string"
+        }
+      },
+      "required": [
+        "titulo",
+        "impacto_humano",
+        "quem_e_afetado",
+        "criterio_wcag",
+        "evidencia",
+        "pagina",
+        "pagina_url",
+        "problema"
+      ],
+      "title": "AchadoParaLeigos",
+      "type": "object"
+    },
+    "Desconto": {
+      "properties": {
+        "problema": {
+          "title": "Problema",
+          "type": "string"
+        },
+        "gravidade": {
+          "title": "Gravidade",
+          "type": "string"
+        },
+        "pontos": {
+          "title": "Pontos",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "problema",
+        "gravidade",
+        "pontos"
+      ],
+      "title": "Desconto",
+      "type": "object"
+    },
+    "Evidencia": {
+      "properties": {
+        "print": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Print"
+        },
+        "trecho_html": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Trecho Html"
+        }
+      },
+      "required": [
+        "print",
+        "trecho_html"
+      ],
+      "title": "Evidencia",
+      "type": "object"
+    },
+    "IndicioVisual": {
+      "properties": {
+        "tipo": {
+          "enum": [
+            "texto_em_imagem",
+            "informacao_so_por_cor",
+            "captcha_visual",
+            "video_sem_legenda_aparente",
+            "outro"
+          ],
+          "title": "Tipo",
+          "type": "string"
+        },
+        "descricao": {
+          "title": "Descricao",
+          "type": "string"
+        },
+        "pagina": {
+          "title": "Pagina",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tipo",
+        "descricao",
+        "pagina"
+      ],
+      "title": "IndicioVisual",
+      "type": "object"
+    },
+    "Totais": {
+      "properties": {
+        "critico": {
+          "title": "Critico",
+          "type": "integer"
+        },
+        "grave": {
+          "title": "Grave",
+          "type": "integer"
+        },
+        "moderado": {
+          "title": "Moderado",
+          "type": "integer"
+        },
+        "leve": {
+          "title": "Leve",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "critico",
+        "grave",
+        "moderado",
+        "leve"
+      ],
+      "title": "Totais",
+      "type": "object"
+    }
+  },
+  "description": "JSON do §8.2 gravado em auditorias.achados_json. Esquema em packages/schemas/auditoria.schema.json.",
+  "properties": {
+    "nota_geral": {
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Nota Geral",
+      "type": "integer"
+    },
+    "paginas_auditadas": {
+      "title": "Paginas Auditadas",
+      "type": "integer"
+    },
+    "totais": {
+      "$ref": "#/$defs/Totais"
+    },
+    "top3_para_leigos": {
+      "items": {
+        "$ref": "#/$defs/AchadoParaLeigos"
+      },
+      "title": "Top3 Para Leigos",
+      "type": "array"
+    },
+    "plugin_resolve_parcialmente": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Plugin Resolve Parcialmente",
+      "type": "array"
+    },
+    "exige_ajuste_no_codigo": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Exige Ajuste No Codigo",
+      "type": "array"
+    },
+    "indicios_visuais": {
+      "items": {
+        "$ref": "#/$defs/IndicioVisual"
+      },
+      "title": "Indicios Visuais",
+      "type": "array"
+    },
+    "observacao_honestidade": {
+      "title": "Observacao Honestidade",
+      "type": "string"
+    },
+    "descontos_nota": {
+      "items": {
+        "$ref": "#/$defs/Desconto"
+      },
+      "title": "Descontos Nota",
+      "type": "array"
+    },
+    "versao_nota": {
+      "title": "Versao Nota",
+      "type": "string"
+    },
+    "raciocinio_resumido": {
+      "title": "Raciocinio Resumido",
+      "type": "string"
+    }
+  },
+  "required": [
+    "nota_geral",
+    "paginas_auditadas",
+    "totais",
+    "top3_para_leigos",
+    "plugin_resolve_parcialmente",
+    "exige_ajuste_no_codigo",
+    "indicios_visuais",
+    "observacao_honestidade",
+    "descontos_nota",
+    "versao_nota",
+    "raciocinio_resumido"
+  ],
+  "title": "ResultadoAuditoriaIA",
+  "type": "object"
+}

@@ -133,13 +133,14 @@ def test_empresa_com_dossie_de_antes_do_auditor_segue_para_auditoria(engine):
     assert ia.chamadas == []
 
 
-def test_empresa_ja_auditada_nao_volta_para_a_fila(engine):
+def test_empresa_ja_auditada_e_analisada_nao_volta_para_a_fila(engine):
     eid = inserir_empresa(engine, estado="AUDITANDO")
     with engine.begin() as conn:
         conn.execute(
             auditorias.insert().values(
                 id=uuid.uuid4(),
                 empresa_id=eid,
+                nota=70,
                 totais_json={},
                 achados_json=[],
                 paginas_json=[],
@@ -148,7 +149,7 @@ def test_empresa_ja_auditada_nao_volta_para_a_fila(engine):
             )
         )
     ctx = montar_ctx(engine, IAFalsa())
-    assert _rodar(ctx, eid) == "ja_auditada"
+    assert _rodar(ctx, eid) == "ja_analisada"
     assert ctx["enfileirar_auditoria"].enviados == []
 
 

@@ -23,6 +23,7 @@ from slp_workers.audit.artefatos import Armazenamento
 from slp_workers.audit.axe import rodar_axe
 from slp_workers.audit.plugins import JS_SINAIS, detectar_plugins
 from slp_workers.audit.responsivo import testar_320
+from slp_workers.audit.semantica import analisar_semantica
 from slp_workers.audit.teclado import testar_teclado
 from slp_workers.settings import WorkerConfig
 from slp_workers.web.dominio import pertence_ao_dominio
@@ -292,6 +293,7 @@ class Auditor:
         print_desktop = await pagina.screenshot(type="png")
         axe = await rodar_axe(pagina, self._config.audit_axe_path)
         plugins = detectar_plugins(await pagina.evaluate(JS_SINAIS))
+        semantica = await analisar_semantica(pagina)
         teclado = await testar_teclado(pagina, self._config.audit_tab_presses)
         responsivo, print_320 = await testar_320(pagina)
         prints = {
@@ -308,6 +310,7 @@ class Auditor:
             "axe": axe,
             "teclado": teclado,
             "responsivo_320": responsivo,
+            "semantica": semantica,
             "prints": prints,
             "plugins": plugins,
             "_plugins": plugins,

@@ -47,13 +47,45 @@ export const EVENTOS_FINAIS = [
     "auditoria_pronta",
     "Auditoria técnica pronta: 2 página(s) testada(s); problemas automáticos: 2 crítico(s), 1 grave(s), " +
       "0 moderado(s), 0 leve(s). Plugin de acessibilidade detectado: UserWay. " +
-      "A nota e os achados explicados entram na próxima versão.",
+      "Em seguida vem a análise com a nota e os achados explicados.",
   ),
+  evento(12, "analisando_auditoria", "Analisando a auditoria para explicar os achados."),
+  evento(13, "analise_pronta", "Análise pronta: nota 58 de 100, com 2 achado(s) explicado(s) para leigos."),
 ];
+
+export const ANALISE = {
+  top3_para_leigos: [
+    {
+      titulo: "Formulário de contato não diz para quem usa leitor de tela o que cada campo pede",
+      impacto_humano: "Uma pessoa cega não consegue saber onde digitar nome, e-mail ou mensagem.",
+      quem_e_afetado: ["pessoas cegas", "pessoas com baixa visão"],
+      criterio_wcag: "1.3.1 / 4.1.2",
+      pagina: "/contato",
+      trecho_html: '<input type="text" id="nome">',
+    },
+    {
+      titulo: "Imagens da página inicial não têm descrição",
+      impacto_humano: "Quem usa leitor de tela não sabe o que as imagens mostram.",
+      quem_e_afetado: ["pessoas cegas"],
+      criterio_wcag: "1.1.1",
+      pagina: "/",
+      trecho_html: null,
+    },
+  ],
+  plugin_resolve_parcialmente: ["contraste de cores"],
+  exige_ajuste_no_codigo: ["campos de formulário sem rótulo", "imagens sem texto alternativo"],
+  indicios_visuais: [
+    { tipo: "texto_em_imagem", descricao: "Banner com o horário de atendimento escrito na imagem.", pagina: "https://hospitalexemplo.com.br/" },
+  ],
+  observacao_honestidade:
+    "Teste automatizado com apoio de IA em até 5 páginas públicas. Ferramentas automáticas encontram só parte " +
+    "das barreiras de acessibilidade; o restante exige avaliação humana.",
+};
 
 export const AUDITORIA = {
   criado_em: "2026-10-24T13:03:00Z",
-  nota: null,
+  nota: 58 as number | null,
+  analise: ANALISE as typeof ANALISE | null,
   totais: { critico: 2, grave: 1, moderado: 0, leve: 0, paginas_auditadas: 2 },
   plugins: ["UserWay"],
   paginas: [
@@ -116,7 +148,7 @@ export interface Detalhe {
 
 export const ANDAMENTO_PADRAO: Detalhe[] = [
   { eventos: EVENTOS_INICIAIS },
-  { eventos: EVENTOS_FINAIS, estado: "AUDITANDO", dossie: DOSSIE, auditoria: AUDITORIA },
+  { eventos: EVENTOS_FINAIS, estado: "QUALIFICANDO", dossie: DOSSIE, auditoria: AUDITORIA },
 ];
 
 export const CANDIDATOS = [

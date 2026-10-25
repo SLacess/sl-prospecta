@@ -147,13 +147,20 @@ def test_empresa_com_dossie_sem_auditoria_volta_para_a_fila(client, db, fila, ve
     assert fila.enviados == [empresa.id]
 
 
-def test_empresa_auditada_nao_volta_para_a_fila(client, db, fila, vendedor_headers):
-    empresa = Empresa(nome="h.com.br", dominio="h.com.br", fonte="manual", estado=EstadoProspect.auditando)
+def test_empresa_analisada_nao_volta_para_a_fila(client, db, fila, vendedor_headers):
+    empresa = Empresa(nome="h.com.br", dominio="h.com.br", fonte="manual", estado=EstadoProspect.qualificando)
     db.add(empresa)
     db.flush()
     db.add(Dossie(empresa_id=empresa.id, versao=1, resumo="x", dados_json={}))
     db.add(
-        Auditoria(empresa_id=empresa.id, totais_json={}, achados_json=[], paginas_json=[], artefatos_urls=[])
+        Auditoria(
+            empresa_id=empresa.id,
+            nota=70,
+            totais_json={},
+            achados_json={},
+            paginas_json=[],
+            artefatos_urls=[],
+        )
     )
     db.commit()
     r = client.post("/prospeccao", json={"alvo": "h.com.br"}, headers=vendedor_headers)
@@ -163,15 +170,26 @@ def test_empresa_auditada_nao_volta_para_a_fila(client, db, fila, vendedor_heade
 
 
 PAGINAS_AUDITADAS = [
-    {"url": "https://h.com.br/", "status": "ok", "plugins": ["UserWay"],
-     "axe": {"violacoes": [{"regra": "image-alt"}, {"regra": "color-contrast"}]},
-     "teclado": {"armadilha_de_foco": None, "link_pular_conteudo": False, "sem_indicador_aparente": 3},
-     "responsivo_320": {"rolagem_horizontal": True}},
-    {"url": "https://h.com.br/contato", "status": "ok", "plugins": [],
-     "axe": {"violacoes": [{"regra": "label"}]},
-     "teclado": {"armadilha_de_foco": {"elementos": ["input#a"]}, "link_pular_conteudo": False,
-                 "sem_indicador_aparente": 0},
-     "responsivo_320": {"rolagem_horizontal": False}},
+    {
+        "url": "https://h.com.br/",
+        "status": "ok",
+        "plugins": ["UserWay"],
+        "axe": {"violacoes": [{"regra": "image-alt"}, {"regra": "color-contrast"}]},
+        "teclado": {"armadilha_de_foco": None, "link_pular_conteudo": False, "sem_indicador_aparente": 3},
+        "responsivo_320": {"rolagem_horizontal": True},
+    },
+    {
+        "url": "https://h.com.br/contato",
+        "status": "ok",
+        "plugins": [],
+        "axe": {"violacoes": [{"regra": "label"}]},
+        "teclado": {
+            "armadilha_de_foco": {"elementos": ["input#a"]},
+            "link_pular_conteudo": False,
+            "sem_indicador_aparente": 0,
+        },
+        "responsivo_320": {"rolagem_horizontal": False},
+    },
     {"url": "https://h.com.br/vagas", "status": "bloqueada", "erro": "robots.txt"},
 ]
 
@@ -180,11 +198,16 @@ def test_ficha_traz_o_resumo_da_auditoria_tecnica(client, db, vendedor_headers):
     empresa = Empresa(nome="H", dominio="h.com.br", fonte="manual", estado=EstadoProspect.auditando)
     db.add(empresa)
     db.flush()
-    db.add(Auditoria(
-        empresa_id=empresa.id, nota=None, achados_json=[], artefatos_urls=["s3://artefatos/x.png"],
-        totais_json={"critico": 2, "grave": 1, "moderado": 0, "leve": 0, "paginas_auditadas": 2},
-        paginas_json=PAGINAS_AUDITADAS,
-    ))
+    db.add(
+        Auditoria(
+            empresa_id=empresa.id,
+            nota=None,
+            achados_json=[],
+            artefatos_urls=["s3://artefatos/x.png"],
+            totais_json={"critico": 2, "grave": 1, "moderado": 0, "leve": 0, "paginas_auditadas": 2},
+            paginas_json=PAGINAS_AUDITADAS,
+        )
+    )
     db.commit()
 
     auditoria = client.get(f"/empresas/{empresa.id}", headers=vendedor_headers).json()["auditoria"]
@@ -197,3 +220,70 @@ def test_ficha_traz_o_resumo_da_auditoria_tecnica(client, db, vendedor_headers):
     assert contato["armadilha_de_foco"] is True
     assert (vagas["status"], vagas["erro"]) == ("bloqueada", "robots.txt")
     assert "s3://" not in str(auditoria)  # prints privados não saem pela API nesta tarefa
+
+
+ANALISE_8_2 = {
+    "nota_geral": 58,
+    "paginas_auditadas": 2,
+    "totais": {"critico": 2, "grave": 1, "moderado": 0, "leve": 0},
+    "top3_para_leigos": [
+        {
+            "titulo": "Formulário sem rótulos",
+            "impacto_humano": "Quem usa leitor de tela não sabe o que digitar.",
+            "quem_e_afetado": ["pessoas cegas"],
+            "criterio_wcag": "1.3.1",
+            "evidencia": {"print": "s3://artefatos/a/02-desktop.png", "trecho_html": '<input id="nome">'},
+            "pagina": "/contato",
+            "pagina_url": "https://h.com.br/contato",
+            "problema": "label",
+        }
+    ],
+    "plugin_resolve_parcialmente": ["contraste de cores"],
+    "exige_ajuste_no_codigo": ["campos de formulário sem rótulo"],
+    "indicios_visuais": [{"tipo": "texto_em_imagem", "descricao": "banner", "pagina": "https://h.com.br/"}],
+    "observacao_honestidade": "Ferramentas automáticas encontram só parte das barreiras.",
+    "descontos_nota": [],
+    "versao_nota": "1.0",
+    "raciocinio_resumido": "ok",
+}
+
+
+def test_ficha_traz_a_analise_do_8_2_sem_os_prints_privados(client, db, vendedor_headers):
+    empresa = Empresa(nome="H", dominio="h.com.br", fonte="manual", estado=EstadoProspect.qualificando)
+    db.add(empresa)
+    db.flush()
+    db.add(
+        Auditoria(
+            empresa_id=empresa.id,
+            nota=58,
+            achados_json=ANALISE_8_2,
+            artefatos_urls=[],
+            totais_json={"critico": 2, "grave": 1},
+            paginas_json=PAGINAS_AUDITADAS,
+        )
+    )
+    db.commit()
+
+    auditoria = client.get(f"/empresas/{empresa.id}", headers=vendedor_headers).json()["auditoria"]
+    assert auditoria["nota"] == 58
+    analise = auditoria["analise"]
+    assert analise["top3_para_leigos"][0]["titulo"] == "Formulário sem rótulos"
+    assert analise["top3_para_leigos"][0]["trecho_html"] == '<input id="nome">'
+    assert analise["plugin_resolve_parcialmente"] == ["contraste de cores"]
+    assert analise["exige_ajuste_no_codigo"] == ["campos de formulário sem rótulo"]
+    assert analise["indicios_visuais"][0]["tipo"] == "texto_em_imagem"
+    assert "só parte" in analise["observacao_honestidade"]
+    assert "s3://" not in str(auditoria)
+
+
+def test_auditoria_sem_analise_volta_para_a_fila(client, db, fila, vendedor_headers):
+    empresa = Empresa(nome="h.com.br", dominio="h.com.br", fonte="manual", estado=EstadoProspect.auditando)
+    db.add(empresa)
+    db.flush()
+    db.add(
+        Auditoria(empresa_id=empresa.id, totais_json={}, achados_json=[], paginas_json=[], artefatos_urls=[])
+    )
+    db.commit()
+    r = client.post("/prospeccao", json={"alvo": "h.com.br"}, headers=vendedor_headers)
+    assert r.json()["na_fila"] is True
+    assert fila.enviados == [empresa.id]

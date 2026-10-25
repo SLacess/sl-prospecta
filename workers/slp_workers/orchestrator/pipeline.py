@@ -1,7 +1,8 @@
 """Orquestrador do pipeline do prospect (CONSTITUICAO §5 e §7).
 
 Fase 1: NOVO → PESQUISANDO (o Pesquisador monta o dossiê) → AUDITANDO (o Auditor técnico roda no
-serviço worker-audit, fila própria). A empresa fica em AUDITANDO até a análise com IA da Tarefa 4.
+serviço worker-audit, fila própria; depois o Auditor com IA dá a nota e explica os achados) → QUALIFICANDO,
+onde a empresa espera o Qualificador da Fase 2.
 Os agentes devolvem dados validados; só este módulo grava no banco e na linha do tempo.
 """
 
@@ -19,7 +20,8 @@ from arq import Retry
 from sqlalchemy import Engine, select, update
 from sqlalchemy.exc import IntegrityError
 
-from slp_workers.agents import researcher
+from slp_workers.agents import auditor, researcher
+from slp_workers.audit.artefatos import Armazenamento
 from slp_workers.db import (
     auditorias,
     dossies,
@@ -42,6 +44,8 @@ log = logging.getLogger("slp_workers.pipeline")
 NOVO = "NOVO"
 PESQUISANDO = "PESQUISANDO"
 AUDITANDO = "AUDITANDO"
+QUALIFICANDO = "QUALIFICANDO"
+MAX_PRINTS_ANALISE = 3
 
 EnfileirarAuditoria = Callable[[uuid.UUID], Awaitable[bool]]
 
@@ -91,6 +95,7 @@ class Dependencias:
     resolvedor: Resolvedor = resolver_dns
     transport: httpx.AsyncBaseTransport | None = None
     enfileirar_auditoria: EnfileirarAuditoria | None = None
+    armazenamento: Armazenamento | None = None
 
     @classmethod
     def do_ctx(cls, ctx: dict) -> "Dependencias":
@@ -103,6 +108,7 @@ class Dependencias:
             transport=ctx.get("transport"),
             enfileirar_auditoria=ctx.get("enfileirar_auditoria")
             or (_enfileirador_redis(ctx["redis"]) if "redis" in ctx else None),
+            armazenamento=ctx.get("armazenamento"),
         )
 
 
@@ -162,9 +168,25 @@ class Pesquisa:
             )
 
     def _tem_auditoria(self) -> bool:
+        return self._ultima_auditoria() is not None
+
+    def _ultima_auditoria(self) -> Any:
         with self.deps.engine.connect() as conn:
-            consulta = select(auditorias.c.id).where(auditorias.c.empresa_id == self.empresa_id).limit(1)
-            return conn.scalar(consulta) is not None
+            return conn.execute(
+                select(auditorias)
+                .where(auditorias.c.empresa_id == self.empresa_id)
+                .order_by(auditorias.c.criado_em.desc())
+                .limit(1)
+            ).first()
+
+    def _gravar_analise(self, auditoria_id: uuid.UUID, nota: int, resultado: dict) -> None:
+        with self.deps.engine.begin() as conn:
+            conn.execute(
+                update(auditorias)
+                .where(auditorias.c.id == auditoria_id)
+                .values(nota=nota, achados_json=resultado)
+            )
+        self._transitar(AUDITANDO, QUALIFICANDO)
 
     def _ultimo_evento(self) -> str | None:
         with self.deps.engine.connect() as conn:
@@ -323,6 +345,38 @@ class Pesquisa:
 
     # --- fluxo ------------------------------------------------------------
 
+    async def _analisar_auditoria(self, empresa: Any, auditoria_bruta: Any) -> str:
+        """Auditor com IA (§8.2): nota por fórmula, achados para leigos, plugin × código; → QUALIFICANDO."""
+        self.etapa = "auditor"
+        await self.evento("analisando_auditoria", "Analisando a auditoria para explicar os achados.")
+        paginas = auditoria_bruta.paginas_json or []
+        prints: list[tuple[str, bytes]] = []
+        if self.deps.armazenamento is not None:
+            for p in [p for p in paginas if p.get("status") == "ok"][:MAX_PRINTS_ANALISE]:
+                url = (p.get("prints") or {}).get("desktop")
+                dados = await self.deps.armazenamento.ler(url) if url else None
+                if dados:
+                    prints.append((p["url"], dados))
+
+        analise, problemas, consumo, entrada_hash, descartados = await auditor.analisar(
+            self.deps.ia, self.deps.config, empresa.nome, empresa.setor, paginas, prints
+        )
+        nota, resultado = auditor.montar_resultado(
+            analise, problemas, paginas, auditoria_bruta.totais_json or {}
+        )
+        await self.acao("auditor", entrada_hash, resultado, analise.raciocinio_resumido, consumo)
+        await asyncio.to_thread(self._gravar_analise, auditoria_bruta.id, nota, resultado)
+        await self.evento(
+            "analise_pronta",
+            f"Análise pronta: nota {nota} de 100, com {len(analise.top3_para_leigos)} achado(s) explicado(s) "
+            "para leigos.",
+            nota=nota,
+            achados_descartados=descartados,
+            prints_analisados=len(prints),
+            custo_brl=str(self.gasto.custo_brl),
+        )
+        return "analise_pronta"
+
     async def _encaminhar_auditoria(self, estado: str) -> str:
         """Dossiê pronto: PESQUISANDO → AUDITANDO e a empresa entra na fila do worker-audit."""
         if await asyncio.to_thread(self._tem_auditoria):
@@ -344,7 +398,12 @@ class Pesquisa:
             if await asyncio.to_thread(self._transitar, NOVO, PESQUISANDO):
                 await self.evento("pesquisa_iniciada", "Pesquisa iniciada.")
         elif empresa.estado == AUDITANDO:
-            return await self._encaminhar_auditoria(AUDITANDO)
+            auditoria_bruta = await asyncio.to_thread(self._ultima_auditoria)
+            if auditoria_bruta is None:
+                return await self._encaminhar_auditoria(AUDITANDO)
+            if auditoria_bruta.nota is None:
+                return await self._analisar_auditoria(empresa, auditoria_bruta)
+            return "ja_analisada"
         elif empresa.estado != PESQUISANDO:
             return "ignorado"
         if await asyncio.to_thread(self._tem_dossie):
@@ -381,5 +440,12 @@ async def processar_empresa(ctx: dict, empresa_id: str) -> str:
             await pesquisa.acao(pesquisa.etapa, "", {"erro": str(exc)}, None, exc.consumo)
         if exc.transitorio and ctx.get("job_try", 1) < MAX_TENTATIVAS_TRANSITORIAS:
             raise Retry(defer=120) from exc
-        await pesquisa.evento("pesquisa_falhou", f"A pesquisa falhou: {exc}. Reenvie a empresa mais tarde.")
+        if pesquisa.etapa == "auditor":
+            await pesquisa.evento(
+                "analise_falhou", f"A análise da auditoria falhou: {exc}. Reenvie a empresa mais tarde."
+            )
+        else:
+            await pesquisa.evento(
+                "pesquisa_falhou", f"A pesquisa falhou: {exc}. Reenvie a empresa mais tarde."
+            )
         return "falhou"

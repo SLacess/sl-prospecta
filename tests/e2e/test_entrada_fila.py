@@ -17,6 +17,7 @@ from arq.worker import Worker
 from app.config import get_settings
 from app.queue import job_id_processamento
 from slp_workers import main as worker_main
+from slp_workers.agents.auditor import AchadoIA, AnaliseIA
 from slp_workers.agents.researcher import Dossie, Localizacao
 from slp_workers.llm import Consumo, RespostaBusca
 from slp_workers.settings import get_config
@@ -36,6 +37,16 @@ class IAFluxo:
     """Claude simulada: um candidato ambíguo na busca e um dossiê fixo."""
 
     async def estruturado(self, *, modelo, sistema, conteudo, formato, effort, max_tokens):
+        if formato is AnaliseIA:
+            analise = AnaliseIA(
+                top3_para_leigos=[AchadoIA(
+                    problema="image-alt", pagina="https://auditada.com.br/", titulo="Imagens sem descrição",
+                    impacto_humano="Quem usa leitor de tela não sabe o que as imagens mostram.",
+                    quem_e_afetado=["pessoas cegas"], criterio_wcag="1.1.1", trecho_html="<img src=x>",
+                )],
+                indicios_visuais=[], raciocinio_resumido="Teste de fluxo.",
+            )
+            return analise, Consumo(modelo=modelo, tokens_in=15000, tokens_out=600, custo_brl=Decimal("0.4000"))
         return _dossie("Hospital do Fluxo"), Consumo(modelo=modelo, tokens_in=9000, tokens_out=700,
                                                     custo_brl=Decimal("0.3000"))
 
@@ -164,6 +175,41 @@ def test_nome_ambiguo_espera_o_vendedor_confirmar_o_site(client, headers):
     assert detalhe["confirmacao_dominio"] is None
     assert detalhe["dossie"] is not None
     assert "dominio_confirmado" in [e["tipo"] for e in detalhe["eventos"]]
+
+
+def test_auditoria_pronta_vira_analise_e_qualificando(client, headers):
+    from app.db import SessionLocal
+    from app.models import Auditoria, Empresa, EstadoProspect
+
+    dominio = f"auditada-{uuid.uuid4().hex[:6]}.com.br"
+    paginas = [{
+        "url": "https://auditada.com.br/", "status": "ok", "prints": {"desktop": None},
+        "axe": {"violacoes": [{"regra": "image-alt", "gravidade": "critico", "ocorrencias": 3, "descricao": "alt",
+                               "criterios_wcag": ["wcag111"], "exemplos": [{"alvo": "img", "html": "<img src=x>"}]}]},
+        "teclado": {"armadilha_de_foco": None, "link_pular_conteudo": True, "sem_indicador_aparente": 0},
+        "responsivo_320": {"rolagem_horizontal": False},
+    }]
+    with SessionLocal() as db:
+        empresa = Empresa(nome="Auditada", dominio=dominio, fonte="manual", estado=EstadoProspect.auditando)
+        db.add(empresa)
+        db.flush()
+        db.add(Auditoria(empresa_id=empresa.id, totais_json={"critico": 1, "grave": 0, "moderado": 0, "leve": 0,
+                                                             "paginas_auditadas": 1},
+                         achados_json=[], paginas_json=paginas, artefatos_urls=[]))
+        db.commit()
+        empresa_id = str(empresa.id)
+
+    # Reenviar pelo painel recoloca a empresa na fila; o worker principal faz a análise com IA
+    r = client.post("/prospeccao", json={"alvo": dominio}, headers=headers)
+    assert r.json()["na_fila"] is True
+    _rodar_worker()
+
+    detalhe = _detalhe(client, headers, empresa_id)
+    assert detalhe["estado"] == "QUALIFICANDO"
+    assert detalhe["auditoria"]["nota"] == 88  # 100 - 12 (imagem sem texto alternativo)
+    assert detalhe["auditoria"]["analise"]["top3_para_leigos"][0]["titulo"] == "Imagens sem descrição"
+    assert detalhe["auditoria"]["analise"]["exige_ajuste_no_codigo"] == ["imagens sem texto alternativo"]
+    assert detalhe["eventos"][-1]["tipo"] == "analise_pronta"
 
 
 def test_disjuntor_de_custo_pausa_o_job_no_worker(client, headers, monkeypatch):

@@ -146,12 +146,30 @@ export interface PaginaAuditada {
   rolagem_horizontal_320: boolean | null;
 }
 
+export interface AchadoParaLeigos {
+  titulo: string;
+  impacto_humano: string;
+  quem_e_afetado: string[];
+  criterio_wcag: string;
+  pagina: string;
+  trecho_html: string | null;
+}
+
+export interface AnaliseAuditoria {
+  top3_para_leigos: AchadoParaLeigos[];
+  plugin_resolve_parcialmente: string[];
+  exige_ajuste_no_codigo: string[];
+  indicios_visuais: { tipo: string; descricao: string; pagina: string }[];
+  observacao_honestidade: string;
+}
+
 export interface AuditoriaResumo {
   criado_em: string;
   nota: number | null;
   totais: Record<string, number>;
   plugins: string[];
   paginas: PaginaAuditada[];
+  analise: AnaliseAuditoria | null;
 }
 
 export interface EmpresaDetalhe extends Empresa {
