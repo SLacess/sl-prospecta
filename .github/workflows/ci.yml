@@ -28,16 +28,57 @@ jobs:
       - run: pytest -q
 
   workers:
-    name: Workers (importação)
+    name: Workers (lint + testes)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r workers/requirements.txt "ruff==0.8.*"
-      - run: ruff check workers
-      - run: cd workers && python -c "import slp_workers.main as m; assert m.WorkerSettings.functions"
+          cache: pip
+          cache-dependency-path: workers/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: python -c "import slp_workers.main as m; assert m.WorkerSettings.functions"
+      - run: pytest -q
+
+  fluxo:
+    name: Fluxo API → fila → worker (Postgres + Redis reais)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: slp
+          POSTGRES_PASSWORD: slp
+          POSTGRES_DB: slp
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U slp -d slp" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://slp:slp@localhost:5432/slp
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: ci-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r apps/api/requirements-dev.txt -r workers/requirements-dev.txt
+      - name: Migrações (upgrade sobre a 0001)
+        run: cd apps/api && alembic upgrade head
+      - name: Testes de fluxo
+        run: FLOW_TESTS=1 PYTHONPATH=apps/api:workers pytest -q tests/e2e
+      - name: Migrações reversíveis (downgrade e upgrade de novo)
+        run: cd apps/api && alembic downgrade 0001_fundacao && alembic upgrade head
 
   web:
     name: Web (tipos + build + acessibilidade)

@@ -130,3 +130,55 @@ button[aria-disabled="true"] { opacity: 0.7; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* Botão com aparência de link (ex.: "Sair" na navegação) */
+button.link {
+  background: none;
+  border: none;
+  padding: 0;
+  min-height: 24px;
+  color: var(--text);
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Aviso persistente (disjuntor de custo, §13): ícone + título + texto, nunca só cor */
+:root {
+  --aviso-bg: #fff4e5;
+  --aviso-borda: #9a4d00;
+  --aviso-texto: #4a2700;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --aviso-bg: #2b2010;
+    --aviso-borda: #ffb37a;
+    --aviso-texto: #ffe2bf;
+  }
+}
+.aviso {
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--aviso-borda);
+  border-left-width: 8px;
+  border-radius: var(--radius);
+  background: var(--aviso-bg);
+  color: var(--aviso-texto);
+}
+.aviso h2 { margin: 0 0 0.25rem; font-size: 1.1rem; }
+.aviso p { margin: 0; }
+
+/* Andamento ao vivo */
+h3 { font-size: 1.05rem; margin: 1.25rem 0 0.5rem; }
+.resumo { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; margin: 0; }
+.resumo dt { color: var(--text-muted); font-size: 0.92rem; }
+.resumo dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+
+.linha-do-tempo { list-style: none; margin: 0; padding: 0; border-left: 3px solid var(--border); }
+.linha-do-tempo li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  padding: 0.4rem 0 0.4rem 1rem;
+}
+.linha-do-tempo time { color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 5.5rem; }

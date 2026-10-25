@@ -1,15 +1,48 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+import { prepararPainel } from "./api-falsa";
 
 // CONSTITUICAO §2.8: o próprio painel segue WCAG 2.2 AA. O CI falha se houver violações.
-const paginas = ["/", "/login"];
-
-for (const caminho of paginas) {
-  test(`sem violações de acessibilidade em ${caminho}`, async ({ page }) => {
-    await page.goto(caminho);
-    const resultado = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-      .analyze();
-    expect(resultado.violations, JSON.stringify(resultado.violations, null, 2)).toEqual([]);
-  });
+async function semViolacoes(page: Page) {
+  const resultado = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(resultado.violations, JSON.stringify(resultado.violations, null, 2)).toEqual([]);
 }
+
+test("sem violações de acessibilidade em /login", async ({ page }) => {
+  await page.goto("/login");
+  await semViolacoes(page);
+});
+
+test("sem violações no painel inicial", async ({ page }) => {
+  await prepararPainel(page);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Painel de Prospecção" })).toBeVisible();
+  await semViolacoes(page);
+});
+
+test("sem violações com o andamento ao vivo na tela", async ({ page }) => {
+  await prepararPainel(page);
+  await page.goto("/");
+  await page.getByLabel("Nome da empresa ou site").fill("hospitalexemplo.com.br");
+  await page.getByRole("button", { name: "Prospectar" }).click();
+  await expect(page.locator(".linha-do-tempo li")).toHaveCount(4);
+  await semViolacoes(page);
+});
+
+test("sem violações com o aviso do disjuntor de custo", async ({ page }) => {
+  await prepararPainel(page, { disjuntorAtingido: true });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /Fila de IA pausada/ })).toBeVisible();
+  await semViolacoes(page);
+});
+
+test("sem violações com mensagem de erro", async ({ page }) => {
+  await prepararPainel(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Prospectar" }).click();
+  await expect(page.locator("#alvo-erro")).toContainText("Digite o nome da empresa");
+  await semViolacoes(page);
+});

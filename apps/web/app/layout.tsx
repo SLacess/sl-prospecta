@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+import { NavSessao } from "./nav-sessao";
+
 export const metadata: Metadata = {
   title: "SL Prospecta — Sinal Link",
   description: "Departamento de SDR autônomo da Sinal Link Acessibilidade",
@@ -21,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <nav aria-label="Navegação principal">
             <ul>
               <li><a href="/" aria-current="page">Prospecção</a></li>
-              <li><a href="/login">Entrar</a></li>
+              <li><NavSessao /></li>
             </ul>
           </nav>
         </header>
@@ -29,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <footer className="hint" style={{ textAlign: "center", padding: "2rem 1rem" }}>
-          SL Prospecta v0.1 · Fase 0 — Fundação
+          SL Prospecta v0.2 · Fase 1 — Auditor + Pesquisador
         </footer>
       </body>
     </html>

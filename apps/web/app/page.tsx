@@ -1,22 +1,137 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import {
+  apiFetch,
+  type Disjuntores,
+  type EmpresaDetalhe,
+  ErroApi,
+  lerToken,
+  type ProspeccaoResposta,
+  ROTULO_ESTADO,
+} from "@/lib/api";
+
+/** Intervalo da consulta ao andamento (ADR 0002: consulta periódica em vez de WebSocket na Fase 1). */
+const INTERVALO_MS = 2000;
+const LIMITE_CONSULTAS = 150; // ~5 minutos acompanhando a mesma empresa
+
+/** Eventos depois dos quais não há mais novidade a esperar nesta versão do pipeline. */
+const EVENTOS_DE_PARADA = new Set(["aguardando_pesquisador", "fila_pausada_custo", "falha_enfileirar"]);
+
+function horario(iso: string): string {
+  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
 
 /**
  * Painel de Prospecção (CONSTITUICAO §12.1, tela 1).
- * Fase 0: interface pronta e acessível; o processamento real entra na Fase 1.
+ * Fase 1: a prospecção individual cadastra a empresa, coloca na fila e mostra o andamento ao vivo.
  */
 export default function PainelProspeccao() {
-  const [mensagem, setMensagem] = useState("");
+  const [anuncio, setAnuncio] = useState("");
+  const [erro, setErro] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [detalhe, setDetalhe] = useState<EmpresaDetalhe | null>(null);
+  const [acompanhando, setAcompanhando] = useState(false);
+  const [disjuntor, setDisjuntor] = useState<Disjuntores["custo"] | null>(null);
 
-  function aoProspectar(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const valor = new FormData(e.currentTarget).get("alvo")?.toString().trim();
-    if (!valor) {
-      setMensagem("Digite o nome da empresa ou o endereço do site.");
+  const campoRef = useRef<HTMLInputElement>(null);
+  const ultimoEventoAnunciado = useRef<string | null>(null);
+
+  const atualizarDisjuntor = useCallback(async () => {
+    try {
+      const d = await apiFetch<Disjuntores>("/governanca/disjuntores");
+      setDisjuntor(d.custo);
+    } catch {
+      /* o aviso é complementar; erros de rede aparecem no envio */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!lerToken()) {
+      window.location.replace("/login");
       return;
     }
-    setMensagem(`Recebido: "${valor}". A prospecção automática será ativada na Fase 1.`);
+    void atualizarDisjuntor();
+  }, [atualizarDisjuntor]);
+
+  // Acompanhamento ao vivo da empresa enviada
+  useEffect(() => {
+    if (!empresaId) return;
+    let ativo = true;
+    let consultas = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function consultar() {
+      consultas += 1;
+      try {
+        const d = await apiFetch<EmpresaDetalhe>(`/empresas/${empresaId}`);
+        if (!ativo) return;
+        setDetalhe(d);
+
+        const ultimo = d.eventos.at(-1);
+        if (ultimo && ultimo.id !== ultimoEventoAnunciado.current) {
+          // Anuncia só a novidade mais recente, para o leitor de tela não repetir a lista inteira
+          if (ultimoEventoAnunciado.current !== null) setAnuncio(ultimo.mensagem);
+          ultimoEventoAnunciado.current = ultimo.id;
+        }
+        if ((ultimo && EVENTOS_DE_PARADA.has(ultimo.tipo)) || consultas >= LIMITE_CONSULTAS) {
+          setAcompanhando(false);
+          if (ultimo?.tipo === "fila_pausada_custo") void atualizarDisjuntor();
+          return;
+        }
+      } catch (e) {
+        if (!ativo) return;
+        setErro(e instanceof ErroApi ? e.message : "Não foi possível atualizar o andamento.");
+        setAcompanhando(false);
+        return;
+      }
+      timer = setTimeout(consultar, INTERVALO_MS);
+    }
+
+    setAcompanhando(true);
+    void consultar();
+    return () => {
+      ativo = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [empresaId, atualizarDisjuntor]);
+
+  async function aoProspectar(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (enviando) return;
+    setErro("");
+
+    const alvo = campoRef.current?.value.trim() ?? "";
+    if (!alvo) {
+      setErro("Digite o nome da empresa ou o endereço do site.");
+      campoRef.current?.focus();
+      return;
+    }
+
+    setEnviando(true);
+    setAnuncio("Enviando…");
+    try {
+      const r = await apiFetch<ProspeccaoResposta>("/prospeccao", {
+        method: "POST",
+        body: JSON.stringify({ alvo }),
+      });
+      setAnuncio(r.mensagem);
+      if (campoRef.current) campoRef.current.value = "";
+      ultimoEventoAnunciado.current = null;
+      setDetalhe(null);
+      setEmpresaId(null);
+      // Reinicia o acompanhamento mesmo se for a mesma empresa (entrada duplicada)
+      setTimeout(() => setEmpresaId(r.empresa.id), 0);
+      if (r.fila_pausada) void atualizarDisjuntor();
+    } catch (e) {
+      setAnuncio("");
+      setErro(e instanceof ErroApi ? e.message : "Não foi possível enviar. Tente novamente.");
+    } finally {
+      setEnviando(false);
+      campoRef.current?.focus();
+    }
   }
 
   return (
@@ -27,31 +142,76 @@ export default function PainelProspeccao() {
         abordagem.
       </p>
 
+      {disjuntor?.atingido && (
+        <section className="aviso" aria-labelledby="titulo-aviso-custo">
+          <h2 id="titulo-aviso-custo">
+            <span aria-hidden="true">⚠ </span>Fila de IA pausada
+          </h2>
+          <p>{disjuntor.mensagem}</p>
+        </section>
+      )}
+
       <section className="card" aria-labelledby="titulo-individual">
         <h2 id="titulo-individual" style={{ marginTop: 0 }}>Prospecção individual</h2>
-        <form onSubmit={aoProspectar} noValidate>
+        <form onSubmit={aoProspectar} noValidate aria-busy={enviando}>
           <div className="row">
             <div className="grow">
               <label htmlFor="alvo">Nome da empresa ou site</label>
               <input
+                ref={campoRef}
                 id="alvo"
                 name="alvo"
                 type="text"
                 autoComplete="off"
+                maxLength={500}
                 placeholder="ex.: hospitalexemplo.com.br"
-                aria-describedby="alvo-dica"
+                aria-describedby={erro ? "alvo-dica alvo-erro" : "alvo-dica"}
+                aria-invalid={erro ? true : undefined}
               />
               <p id="alvo-dica" className="hint">
                 Pode ser o nome (ex.: Hospital Exemplo) ou o endereço do site.
               </p>
             </div>
-            <button type="submit">Prospectar</button>
+            <button type="submit" aria-disabled={enviando}>
+              Prospectar
+            </button>
           </div>
         </form>
-        <div role="status" aria-live="polite" className={mensagem ? "status" : undefined}>
-          {mensagem}
+        <div role="status" aria-live="polite" className={anuncio ? "status" : undefined}>
+          {anuncio}
+        </div>
+        <div id="alvo-erro" role="alert" className={erro ? "status error" : undefined}>
+          {erro}
         </div>
       </section>
+
+      {detalhe && (
+        <section className="card" aria-labelledby="titulo-andamento" style={{ marginTop: "1.5rem" }}>
+          <h2 id="titulo-andamento" style={{ marginTop: 0 }}>
+            Andamento: {detalhe.nome}
+          </h2>
+          <dl className="resumo">
+            <div>
+              <dt>Estado</dt>
+              <dd>{ROTULO_ESTADO[detalhe.estado] ?? detalhe.estado}</dd>
+            </div>
+            <div>
+              <dt>Site</dt>
+              <dd>{detalhe.dominio ?? "Ainda não identificado"}</dd>
+            </div>
+          </dl>
+          <p className="hint">{acompanhando ? "Atualizando automaticamente…" : "Sem novidades no momento."}</p>
+          <h3>Linha do tempo</h3>
+          <ol className="linha-do-tempo">
+            {detalhe.eventos.map((ev) => (
+              <li key={ev.id}>
+                <time dateTime={ev.ocorrido_em}>{horario(ev.ocorrido_em)}</time>
+                <span>{ev.mensagem}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       <section className="card" aria-labelledby="titulo-lote" style={{ marginTop: "1.5rem" }}>
         <h2 id="titulo-lote" style={{ marginTop: 0 }}>Prospecção em lote</h2>

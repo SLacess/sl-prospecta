@@ -1,3 +1,4 @@
+from decimal import Decimal
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -17,6 +18,10 @@ class Settings(BaseSettings):
     model_triage: str = "claude-haiku-5-5"
     model_analysis: str = "claude-sonnet-5-5"
     model_strategy: str = "claude-opus-5-5"
+
+    # Disjuntor de custo (CONSTITUICAO §13): teto diário de IA/dados em reais
+    daily_ai_budget_brl: Decimal = Decimal("30")
+    business_timezone: str = "America/Sao_Paulo"
 
     @property
     def cors_origin_list(self) -> list[str]:
