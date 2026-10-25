@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     daily_ai_budget_brl: Decimal = Decimal("30")
     business_timezone: str = "America/Sao_Paulo"
 
+    # Arquivos dos workers (prints e mini-relatórios) no MinIO — mesmo bucket privado
+    minio_endpoint: str = "http://minio:9000"
+    minio_root_user: str = ""
+    minio_root_password: str = ""
+    minio_bucket: str = "artefatos"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

@@ -18,6 +18,7 @@ from app.config import get_settings
 from app.queue import job_id_processamento
 from slp_workers import main as worker_main
 from slp_workers.agents.auditor import AchadoIA, AnaliseIA
+from slp_workers.audit.artefatos import ArmazenamentoMemoria
 from slp_workers.agents.researcher import Dossie, Localizacao
 from slp_workers.llm import Consumo, RespostaBusca
 from slp_workers.settings import get_config
@@ -73,6 +74,7 @@ def _site(request: httpx.Request) -> httpx.Response:
 async def _startup_simulado(ctx: dict) -> None:
     await worker_main.startup(ctx)
     ctx["ia"] = IAFluxo()
+    ctx["armazenamento"] = ArmazenamentoMemoria()  # sem MinIO no CI: prints e relatório ficam em memória
     ctx["transport"] = httpx.MockTransport(_site)
 
     async def publico(host):
@@ -209,7 +211,8 @@ def test_auditoria_pronta_vira_analise_e_qualificando(client, headers):
     assert detalhe["auditoria"]["nota"] == 88  # 100 - 12 (imagem sem texto alternativo)
     assert detalhe["auditoria"]["analise"]["top3_para_leigos"][0]["titulo"] == "Imagens sem descrição"
     assert detalhe["auditoria"]["analise"]["exige_ajuste_no_codigo"] == ["imagens sem texto alternativo"]
-    assert detalhe["eventos"][-1]["tipo"] == "analise_pronta"
+    # Fim da análise: o mini-relatório em PDF é gerado (Tarefa 5)
+    assert [e["tipo"] for e in detalhe["eventos"]][-2:] == ["analise_pronta", "relatorio_pronto"]
 
 
 def test_disjuntor_de_custo_pausa_o_job_no_worker(client, headers, monkeypatch):

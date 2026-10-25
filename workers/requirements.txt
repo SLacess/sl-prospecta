@@ -7,3 +7,5 @@ anthropic==2.3.*
 httpx==0.28.*
 beautifulsoup4==4.13.*
 minio==7.2.*  # prints da auditoria (o Auditor com IA lê os prints no worker principal)
+jinja2==3.1.*
+weasyprint==66.*  # PDF do mini-relatório; precisa de Pango no sistema (Dockerfile)

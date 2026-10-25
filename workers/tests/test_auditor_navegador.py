@@ -251,3 +251,27 @@ def test_pagina_lenta_esgota_o_tempo():
             asyncio.run(auditor.auditar("127.0.0.1", "x", nada))
     finally:
         lento.fechar()
+
+
+@pytest.mark.parametrize("largura", [1280, 360])
+def test_versao_web_do_relatorio_sem_violacoes(largura):
+    """CONSTITUICAO §21.3: o mini-relatório passa no axe sem erros (também na largura de celular)."""
+    from playwright.async_api import async_playwright
+
+    from slp_workers.audit.axe import rodar_axe
+    from slp_workers.documents.relatorio import gerar_html
+    from tests.test_relatorio import _dados
+
+    html = gerar_html(_dados())
+
+    async def rodar():
+        async with async_playwright() as pw:
+            navegador = await pw.chromium.launch()
+            try:
+                pagina = await navegador.new_page(viewport={"width": largura, "height": 900})
+                await pagina.set_content(html)
+                return await rodar_axe(pagina, AXE)
+            finally:
+                await navegador.close()
+
+    assert asyncio.run(rodar())["violacoes"] == []

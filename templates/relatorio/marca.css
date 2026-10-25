@@ -1,0 +1,10 @@
+/* Identidade visual Sinal Link (marca "Sinal Link" no Bloom): paleta, tipografia DM Sans e logotipo.
+   Contraste conferido para WCAG 2.2 AA sobre fundo branco e #F4F4F4. */
+:root {
+  --sl-roxo: #5a1b8b;       /* 11,1:1 sobre branco */
+  --sl-magenta: #c2188a;    /* 5,4:1 sobre branco: títulos e destaques */
+  --sl-azul-escuro: #1e1e3c; /* texto principal, 16:1 */
+  --sl-cinza-claro: #f4f4f4;
+  --sl-cinza-texto: #4b4b63; /* texto secundário, 8,3:1 */
+  --sl-branco: #ffffff;
+}

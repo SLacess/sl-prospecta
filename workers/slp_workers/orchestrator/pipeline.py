@@ -34,6 +34,7 @@ from slp_workers.db import (
 from slp_workers.filas import FILA_AUDITORIA, JOB_AUDITAR_EMPRESA, job_id_auditoria
 from slp_workers.llm import ClienteIA, Consumo, ErroIA
 from slp_workers.orchestrator.budget import requires_ai_budget
+from slp_workers.orchestrator.relatorio import gerar_com_evento
 from slp_workers.settings import WorkerConfig, get_config
 from slp_workers.web.fetcher import LeitorSite, LeituraBloqueada, Pagina, escolher_paginas
 from slp_workers.web.ratelimit import Limitador
@@ -375,6 +376,8 @@ class Pesquisa:
             prints_analisados=len(prints),
             custo_brl=str(self.gasto.custo_brl),
         )
+        # Mini-relatório (§8.3), sem IA: uma falha aqui fica na linha do tempo e não desfaz a análise
+        await gerar_com_evento(self.deps.engine, self.deps.armazenamento, self.empresa_id)
         return "analise_pronta"
 
     async def _encaminhar_auditoria(self, estado: str) -> str:

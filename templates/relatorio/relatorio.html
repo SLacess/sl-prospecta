@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Diagnóstico de acessibilidade digital — {{ empresa.nome }}</title>
+  <meta name="author" content="Sinal Link Acessibilidade">
+  <meta name="description" content="Mini-relatório de acessibilidade digital de {{ empresa.dominio }}, gerado em {{ data }}.">
+  <meta name="dcterms.created" content="{{ data_iso }}">
+  <style>
+    {{ fontes_css | safe }}
+    {{ marca_css | safe }}
+
+    @page {
+      size: A4;
+      margin: 10mm 11mm 9mm;
+    }
+    * { box-sizing: border-box; }
+    html { font-family: "DM Sans", Arial, sans-serif; color: var(--sl-azul-escuro); font-size: 9.2pt; line-height: 1.35; }
+    body { margin: 0; background: var(--sl-branco); }
+    main { max-width: 190mm; margin: 0 auto; }
+    h1, h2, h3, p { margin: 0; }
+
+    .topo { display: flex; justify-content: space-between; align-items: center; gap: 8mm;
+            border-bottom: 2px solid var(--sl-roxo); padding-bottom: 3mm; }
+    .topo img { height: 12mm; width: auto; }
+    .topo .titulo { text-align: right; }
+    .topo h1 { font-size: 14pt; color: var(--sl-roxo); line-height: 1.15; }
+    .topo p { color: var(--sl-cinza-texto); font-size: 8.5pt; }
+
+    .resumo { display: flex; gap: 5mm; margin-top: 3.5mm; align-items: stretch; }
+    .nota { background: var(--sl-roxo); color: var(--sl-branco); border-radius: 3mm; padding: 2.5mm 4mm;
+            min-width: 38mm; text-align: center; }
+    .nota .valor { font-size: 26pt; font-weight: 700; line-height: 1; }
+    .nota .escala { font-size: 9pt; }
+    .nota .faixa { font-size: 8.5pt; margin-top: 1mm; font-weight: 700; }
+    .contexto { flex: 1; background: var(--sl-cinza-claro); border-radius: 3mm; padding: 2.5mm 4mm; }
+    .contexto p + p { margin-top: 1mm; }
+    .totais { display: flex; flex-wrap: wrap; gap: 1mm 4mm; margin-top: 1.2mm; padding: 0; list-style: none; }
+    .totais li strong { color: var(--sl-roxo); }
+
+    h2 { font-size: 11pt; color: var(--sl-magenta); margin: 3.5mm 0 1.6mm; }
+    .achados { list-style: none; padding: 0; margin: 0; }
+    .achado { display: flex; gap: 4mm; padding: 2mm 0; border-bottom: 1px solid #d9d9e3; break-inside: avoid; }
+    .achado:last-child { border-bottom: 0; }
+    .print { position: relative; width: 58mm; flex: none; margin: 0; }
+    /* Proporção fixa do print do Auditor (1366 × 768): a caixa do problema fica no lugar e a página não estoura */
+    .print img { width: 58mm; height: 32.6mm; object-fit: cover; object-position: top left; display: block;
+                 border: 1px solid #c9c9d6; border-radius: 1.5mm; }
+    .caixa { position: absolute; border: 2px solid var(--sl-magenta); border-radius: 1mm; }
+    .caixa span { position: absolute; top: -3.2mm; left: -0.6mm; background: var(--sl-magenta); color: var(--sl-branco);
+                  font-size: 7pt; font-weight: 700; padding: 0 1.2mm; border-radius: 1mm; line-height: 1.4; }
+    .sem-print { width: 58mm; flex: none; background: var(--sl-cinza-claro); border-radius: 1.5mm; padding: 2mm;
+                 color: var(--sl-cinza-texto); font-size: 8pt; }
+    .achado h3 { font-size: 9.6pt; color: var(--sl-azul-escuro); }
+    .achado h3 .num { color: var(--sl-magenta); }
+    .achado .impacto { margin-top: 0.8mm; }
+    .achado .meta { margin-top: 0.8mm; color: var(--sl-cinza-texto); font-size: 8pt; }
+
+    .afetados { display: flex; flex-wrap: wrap; gap: 1.2mm; list-style: none; padding: 0; margin: 0; }
+    .afetados li { background: var(--sl-cinza-claro); border: 1px solid #d9d9e3; border-radius: 4mm; padding: 0.4mm 2.6mm; }
+
+    .acoes { margin: 0; padding-left: 5mm; }
+    .acoes li { margin: 0 0 1mm; }
+    .acoes .selo { font-weight: 700; color: var(--sl-roxo); }
+
+    .metodologia { margin-top: 3mm; padding: 2mm 3mm; border-left: 3px solid var(--sl-roxo); background: var(--sl-cinza-claro);
+                   font-size: 7.8pt; color: var(--sl-cinza-texto); }
+    .rodape { margin-top: 2mm; font-size: 7.5pt; color: var(--sl-cinza-texto); display: flex; justify-content: space-between; }
+
+    @media screen {
+      html { font-size: 15px; }
+      body { background: var(--sl-cinza-claro); padding: 16px; }
+      main { background: var(--sl-branco); padding: 24px; border-radius: 12px; max-width: 900px; }
+      .print, .print img, .sem-print { width: 260px; }
+      .print img { height: 146px; }
+      @media (max-width: 640px) {
+        .resumo, .achado, .topo { flex-direction: column; align-items: flex-start; }
+        .topo .titulo { text-align: left; }
+        .print, .print img, .sem-print { width: 100%; }
+        .print img { height: auto; aspect-ratio: 1366 / 768; }
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="topo">
+    <img src="{{ logo }}" alt="Sinal Link Acessibilidade">
+    <div class="titulo">
+      <h1>Diagnóstico de acessibilidade digital</h1>
+      <p>{{ empresa.nome }} · {{ empresa.dominio }} · {{ data }}</p>
+    </div>
+  </header>
+
+  <section class="resumo" aria-label="Resumo">
+    <div class="nota">
+      <p class="valor">{{ nota }}</p>
+      <p class="escala">de 100</p>
+      <p class="faixa">{{ faixa }}</p>
+    </div>
+    <div class="contexto">
+      <p>{{ comparacao }}</p>
+      <p>Testamos {{ paginas_auditadas }} página(s) públicas e encontramos estes tipos de problema automático:</p>
+      <ul class="totais">
+        <li><strong>{{ totais.critico }}</strong> crítico(s)</li>
+        <li><strong>{{ totais.grave }}</strong> grave(s)</li>
+        <li><strong>{{ totais.moderado }}</strong> moderado(s)</li>
+        <li><strong>{{ totais.leve }}</strong> leve(s)</li>
+      </ul>
+    </div>
+  </section>
+
+  <h2>O que encontramos</h2>
+  <ol class="achados">
+    {% for a in achados %}
+    <li class="achado">
+      {% if a.print %}
+      <figure class="print">
+        <img src="{{ a.print }}" alt="{{ a.alt_print }}">
+        {% if a.caixa %}
+        <div class="caixa" aria-hidden="true" style="left: {{ a.caixa.left }}%; top: {{ a.caixa.top }}%; width: {{ a.caixa.width }}%; height: {{ a.caixa.height }}%;"><span>{{ a.numero }}</span></div>
+        {% endif %}
+      </figure>
+      {% else %}
+      <p class="sem-print">Print não disponível para esta página.</p>
+      {% endif %}
+      <div>
+        <h3><span class="num">{{ a.numero }}.</span> {{ a.titulo }}</h3>
+        <p class="impacto">{{ a.impacto_humano }}</p>
+        <p class="meta">Página: {{ a.pagina }} · Critério WCAG {{ a.criterio_wcag }}</p>
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+
+  <h2>Quem é afetado</h2>
+  <ul class="afetados">
+    {% for grupo in quem_e_afetado %}<li>{{ grupo }}</li>{% endfor %}
+  </ul>
+
+  <h2>Três ações recomendadas</h2>
+  <ol class="acoes">
+    {% for acao in acoes %}
+    <li>{% if acao.gratuita %}<span class="selo">Gratuita, sua equipe pode fazer: </span>{% endif %}{{ acao.acao }}</li>
+    {% endfor %}
+  </ol>
+
+  <p class="metodologia"><strong>Como este diagnóstico foi feito.</strong> {{ observacao }} Nota calculada pela fórmula {{ versao_nota }} da Sinal Link, a partir dos problemas encontrados.</p>
+  <footer class="rodape">
+    <span>Sinal Link Acessibilidade · sinallink.com.br</span>
+    <span>Gerado em {{ data }}</span>
+  </footer>
+</main>
+</body>
+</html>

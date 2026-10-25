@@ -12,6 +12,8 @@ log = logging.getLogger("slp_workers.artefatos")
 class Armazenamento(Protocol):
     async def salvar_png(self, chave: str, dados: bytes) -> str | None: ...
 
+    async def salvar(self, chave: str, dados: bytes, tipo: str) -> str: ...
+
     async def ler(self, url: str) -> bytes | None: ...
 
 
@@ -31,12 +33,12 @@ class ArmazenamentoMinio:
         )
         self._bucket_ok = False
 
-    def _salvar(self, chave: str, dados: bytes) -> str:
+    def _salvar(self, chave: str, dados: bytes, tipo: str = "image/png") -> str:
         if not self._bucket_ok:
             if not self._cliente.bucket_exists(self._bucket):
                 self._cliente.make_bucket(self._bucket)
             self._bucket_ok = True
-        self._cliente.put_object(self._bucket, chave, io.BytesIO(dados), len(dados), content_type="image/png")
+        self._cliente.put_object(self._bucket, chave, io.BytesIO(dados), len(dados), content_type=tipo)
         return f"s3://{self._bucket}/{chave}"
 
     async def salvar_png(self, chave: str, dados: bytes) -> str | None:
@@ -46,6 +48,20 @@ class ArmazenamentoMinio:
         except Exception as exc:  # noqa: BLE001
             log.warning("print não salvo (%s): %s", chave, exc)
             return None
+
+    async def existe(self, chave: str) -> bool:
+        def _existe() -> bool:
+            try:
+                self._cliente.stat_object(self._bucket, chave)
+                return True
+            except Exception:  # noqa: BLE001 — objeto ou bucket inexistente
+                return False
+
+        return await asyncio.to_thread(_existe)
+
+    async def salvar(self, chave: str, dados: bytes, tipo: str) -> str:
+        """Documentos (relatório PDF e HTML): a falha sobe para o chamador registrar."""
+        return await asyncio.to_thread(self._salvar, chave, dados, tipo)
 
     def _ler(self, chave: str) -> bytes:
         resposta = self._cliente.get_object(self._bucket, chave)
@@ -74,6 +90,10 @@ class ArmazenamentoMemoria:
         self.arquivos: dict[str, bytes] = {}
 
     async def salvar_png(self, chave: str, dados: bytes) -> str | None:
+        self.arquivos[chave] = dados
+        return f"s3://teste/{chave}"
+
+    async def salvar(self, chave: str, dados: bytes, tipo: str) -> str:
         self.arquivos[chave] = dados
         return f"s3://teste/{chave}"
 
