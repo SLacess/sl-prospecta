@@ -1,0 +1,41 @@
+{
+  "_sobre": "Ações recomendadas do mini-relatório (CONSTITUICAO §8.3, item 4): três ações, pelo menos uma gratuita e possível de fazer sem a Sinal Link. Textos revisados por humanos; altere por PR. 'gratuita' = a própria equipe do site resolve sem contratar nada.",
+  "versao": "1.0.0",
+  "por_problema": {
+    "image-alt": {"acao": "Escrever uma descrição curta (texto alternativo) para cada imagem com conteúdo, começando pelas da página inicial.", "gratuita": true},
+    "role-img-alt": {"acao": "Escrever uma descrição curta (texto alternativo) para cada imagem com conteúdo, começando pelas da página inicial.", "gratuita": true},
+    "svg-img-alt": {"acao": "Dar um nome aos ícones e gráficos que transmitem informação, para que o leitor de tela os anuncie.", "gratuita": true},
+    "input-image-alt": {"acao": "Dar um nome aos botões feitos de imagem, dizendo o que eles fazem.", "gratuita": true},
+    "link-name": {"acao": "Dar um nome a cada link que hoje é só ícone ou imagem (ex.: \"Instagram do hospital\"), para que o leitor de tela diga para onde ele leva.", "gratuita": true},
+    "button-name": {"acao": "Dar um nome a cada botão que hoje é só ícone (setas, lupa, menu), dizendo o que ele faz.", "gratuita": true},
+    "label": {"acao": "Associar um rótulo visível a cada campo dos formulários (nome, e-mail, telefone).", "gratuita": true},
+    "select-name": {"acao": "Associar um rótulo visível a cada lista de seleção dos formulários.", "gratuita": true},
+    "html-has-lang": {"acao": "Declarar o idioma da página (português) no código, para o leitor de tela usar a pronúncia certa.", "gratuita": true},
+    "html-lang-valid": {"acao": "Corrigir o idioma declarado no código da página para português (pt-BR).", "gratuita": true},
+    "document-title": {"acao": "Dar um título único e descritivo a cada página.", "gratuita": true},
+    "label-content-name-mismatch": {"acao": "Fazer o nome que o leitor de tela anuncia começar pelo mesmo texto que aparece na tela, para quem usa comando de voz.", "gratuita": true},
+    "color-contrast": {"acao": "Escurecer os textos claros sobre fundo claro (ou clarear sobre fundo escuro) até atingir o contraste mínimo de 4,5:1.", "gratuita": false},
+    "link-in-text-block": {"acao": "Sublinhar os links dentro dos textos, para que não dependam só da cor.", "gratuita": true},
+    "target-size": {"acao": "Aumentar a área de toque de botões e links pequenos (mínimo de 24 × 24 pixels).", "gratuita": false},
+    "meta-viewport": {"acao": "Liberar o zoom no celular, retirando o bloqueio do código da página.", "gratuita": true},
+    "list": {"acao": "Corrigir a estrutura das listas no código, para o leitor de tela anunciar quantos itens existem.", "gratuita": false},
+    "listitem": {"acao": "Corrigir a estrutura das listas no código, para o leitor de tela anunciar quantos itens existem.", "gratuita": false},
+    "scrollable-region-focusable": {"acao": "Permitir que as áreas com rolagem própria sejam alcançadas e roladas pelo teclado.", "gratuita": false},
+    "nested-interactive": {"acao": "Separar elementos clicáveis que estão uns dentro dos outros, para que cada um tenha sua função clara.", "gratuita": false},
+    "video-caption": {"acao": "Publicar legendas nos vídeos do site.", "gratuita": false},
+    "teclado:armadilha_de_foco": {"acao": "Corrigir o trecho em que o foco do teclado fica preso, para que a tecla Tab sempre permita sair dele.", "gratuita": false},
+    "teclado:sem_indicador_de_foco": {"acao": "Deixar sempre visível o contorno do elemento selecionado pelo teclado (não remover o \"outline\" no CSS).", "gratuita": true},
+    "teclado:sem_link_pular_conteudo": {"acao": "Incluir no topo de cada página um link \"Pular para o conteúdo\", o primeiro a receber o foco do teclado.", "gratuita": true},
+    "responsivo:rolagem_horizontal_320": {"acao": "Ajustar o layout para que o conteúdo caiba em telas estreitas e com zoom, sem rolagem lateral.", "gratuita": false},
+    "semantica:links_genericos": {"acao": "Trocar textos de link como \"saiba mais\" e \"clique aqui\" por textos que digam o destino.", "gratuita": true},
+    "semantica:salto_de_titulo": {"acao": "Organizar os títulos em ordem (h1, h2, h3), sem pular níveis.", "gratuita": true}
+  },
+  "por_prefixo": {
+    "aria-": {"acao": "Revisar os atributos ARIA do código, que hoje passam informações erradas ao leitor de tela.", "gratuita": false}
+  },
+  "sinal_link": {
+    "plugin": {"acao": "Enquanto o código é corrigido, oferecer aos visitantes recursos de apoio (contraste, tamanho de texto, espaçamento) com uma camada de tecnologia assistiva. Ela ajuda, mas não substitui a correção do site.", "gratuita": false},
+    "avaliacao_humana": {"acao": "Fazer uma avaliação manual com especialistas e pessoas com deficiência, que encontra as barreiras que os testes automáticos não pegam.", "gratuita": false}
+  },
+  "gratuita_padrao": {"acao": "Navegar pela página inicial usando só a tecla Tab e anotar onde fica difícil saber o que está selecionado ou onde não se consegue chegar.", "gratuita": true}
+}

@@ -295,7 +295,9 @@ def _com_auditoria(engine, nota=None):
     return eid, aid
 
 
-def test_analise_grava_o_json_do_8_2_e_passa_para_qualificando(engine):
+def test_analise_grava_o_json_do_8_2_e_passa_para_qualificando(engine, monkeypatch):
+    # O PDF do relatório tem testes próprios (test_relatorio.py); aqui só importa que ele é gerado
+    monkeypatch.setattr("slp_workers.orchestrator.relatorio.gerar_pdf", lambda html: b"%PDF-teste")
     eid, aid = _com_auditoria(engine)
     armazenamento = ArmazenamentoMemoria()
     # Prints salvos pelo Auditor técnico (ver _pagina: s3://teste/<fim da url>.png)
@@ -311,10 +313,16 @@ def test_analise_grava_o_json_do_8_2_e_passa_para_qualificando(engine):
         estado = conn.scalar(select(empresas.c.estado).where(empresas.c.id == eid))
         acao = conn.execute(select(acoes_agentes).where(acoes_agentes.c.empresa_id == eid)).one()
         ultimo = conn.execute(
-            select(eventos.c.tipo, eventos.c.dados_json)
-            .where(eventos.c.empresa_id == eid)
-            .order_by(eventos.c.ocorrido_em.desc())
+            select(eventos.c.tipo, eventos.c.dados_json).where(
+                eventos.c.empresa_id == eid, eventos.c.tipo == "analise_pronta"
+            )
         ).first()
+        tipos = [
+            r.tipo
+            for r in conn.execute(
+                select(eventos.c.tipo).where(eventos.c.empresa_id == eid).order_by(eventos.c.ocorrido_em)
+            )
+        ]
     assert estado == "QUALIFICANDO"
     assert a.nota == 100 - (12 + 12 + 12 + 7 + 3 + 3)
     resultado = ResultadoAuditoriaIA.model_validate(a.achados_json)
@@ -328,6 +336,9 @@ def test_analise_grava_o_json_do_8_2_e_passa_para_qualificando(engine):
     assert ultimo.tipo == "analise_pronta"
     assert f"nota {a.nota} de 100" in ultimo.dados_json["mensagem"]
     assert ultimo.dados_json["prints_analisados"] == 2
+    # Fim da análise gera o mini-relatório (Tarefa 5)
+    assert tipos[-2:] == ["analise_pronta", "relatorio_pronto"]
+    assert any(k.startswith(f"relatorios/{eid}/") and k.endswith(".pdf") for k in armazenamento.arquivos)
 
 
 def test_auditoria_ja_analisada_nao_gasta_de_novo(engine):

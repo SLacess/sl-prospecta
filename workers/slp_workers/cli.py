@@ -3,6 +3,7 @@
 Uso (no contêiner do worker):
     python -m slp_workers.cli retomar          # recoloca na fila quem parou no meio do pipeline
     python -m slp_workers.cli retomar --listar # só mostra quem seria recolocado
+    python -m slp_workers.cli relatorios --faltantes [--listar]  # gera os mini-relatórios que faltam (sem IA)
 
 `retomar` serve para empresas que ficaram para trás numa mudança de versão: por exemplo, as que já
 tinham dossiê (PESQUISANDO) antes do Auditor, ou auditoria sem nota antes do Auditor com IA.
@@ -17,7 +18,7 @@ from arq import create_pool
 from arq.connections import RedisSettings
 from sqlalchemy import select
 
-from slp_workers.db import empresas, make_engine
+from slp_workers.db import auditorias, empresas, make_engine
 from slp_workers.settings import get_config
 
 ESTADOS_EM_ANDAMENTO = ("NOVO", "PESQUISANDO", "AUDITANDO")
@@ -63,14 +64,64 @@ def retomar(listar: bool) -> int:
     return 0
 
 
+def _analisadas() -> list:
+    engine = make_engine(get_config().database_url)
+    try:
+        with engine.connect() as conn:
+            return conn.execute(
+                select(empresas.c.id, empresas.c.nome, auditorias.c.id.label("auditoria_id"))
+                .join(auditorias, auditorias.c.empresa_id == empresas.c.id)
+                .where(auditorias.c.nota.is_not(None))
+                .order_by(empresas.c.nome)
+            ).all()
+    finally:
+        engine.dispose()
+
+
+async def _gerar_faltantes(listar: bool) -> int:
+    from slp_workers.audit.artefatos import ArmazenamentoMinio
+    from slp_workers.orchestrator.relatorio import chave_relatorio, gerar_com_evento
+
+    config = get_config()
+    armazenamento = ArmazenamentoMinio(
+        config.minio_endpoint, config.minio_root_user, config.minio_root_password, config.minio_bucket
+    )
+    faltantes = [
+        e
+        for e in _analisadas()
+        if not await armazenamento.existe(chave_relatorio(e.id, e.auditoria_id, "pdf"))
+    ]
+    for e in faltantes:
+        print(f"sem relatório  {e.nome}")
+    if listar:
+        print(f"{len(faltantes)} relatório(s) seriam gerados (sem custo de IA).")
+        return 0
+    engine = make_engine(config.database_url)
+    try:
+        gerados = 0
+        for e in faltantes:
+            gerados += await gerar_com_evento(engine, armazenamento, e.id)
+    finally:
+        engine.dispose()
+    print(f"{gerados} de {len(faltantes)} relatório(s) gerados.")
+    return 0 if gerados == len(faltantes) else 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="slp_workers.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("retomar", help="Recoloca na fila as empresas paradas no meio do pipeline")
     p.add_argument("--listar", action="store_true", help="Só lista, sem enfileirar")
+    r = sub.add_parser("relatorios", help="Gera os mini-relatórios em PDF que ainda não existem")
+    r.add_argument(
+        "--faltantes", action="store_true", required=True, help="Só as auditorias analisadas sem PDF"
+    )
+    r.add_argument("--listar", action="store_true", help="Só lista, sem gerar")
     args = parser.parse_args()
     if args.cmd == "retomar":
         return retomar(args.listar)
+    if args.cmd == "relatorios":
+        return asyncio.run(_gerar_faltantes(args.listar))
     return 1
 
 

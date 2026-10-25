@@ -7,11 +7,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Pango e HarfBuzz: o WeasyPrint gera o PDF do mini-relatório (a auditoria com navegador fica no worker-audit)
+RUN apt-get update     && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0     && rm -rf /var/lib/apt/lists/*
+
 COPY workers/requirements.txt .
 RUN pip install -r requirements.txt
-
-# Fase 1 (auditoria): trocar a base por mcr.microsoft.com/playwright/python
-# ou rodar `playwright install --with-deps chromium` aqui.
 
 COPY workers/slp_workers ./slp_workers
 COPY packages ./packages

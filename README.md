@@ -21,7 +21,10 @@ Departamento de SDR autônomo da **Sinal Link Acessibilidade** — prospecção 
 - ✅ Tarefa 4 — Auditor com IA: nota 0–100 por fórmula, 3 achados explicados para leigos, plugin × código
   pela tabela em `packages/knowledge/plugin-sinal-link.json` e indícios visuais nos prints; a empresa
   passa para QUALIFICANDO ([ADR 0005](docs/decisoes/0005-auditor-com-ia.md)).
-- ⏳ Tarefa 5: mini-relatório PDF e Ficha do Prospect.
+- ✅ Tarefa 5 — mini-relatório de 1 página A4 (PDF com tags e versão web) com a marca Sinal Link, e a
+  Ficha do Prospect no painel ([ADR 0006](docs/decisoes/0006-mini-relatorio-e-ficha.md)).
+
+**Próximo passo da Fase 1:** revisar 20 auditorias reais (≥ 90% de achados corretos) para avançar à Fase 2.
 
 ## Rodando localmente
 

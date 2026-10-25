@@ -51,6 +51,7 @@ export const EVENTOS_FINAIS = [
   ),
   evento(12, "analisando_auditoria", "Analisando a auditoria para explicar os achados."),
   evento(13, "analise_pronta", "Análise pronta: nota 58 de 100, com 2 achado(s) explicado(s) para leigos."),
+  evento(14, "relatorio_pronto", "Mini-relatório em PDF pronto para baixar na ficha da empresa."),
 ];
 
 export const ANALISE = {
@@ -173,6 +174,66 @@ export const ANDAMENTO_CONFIRMACAO: Detalhe[] = [
   },
 ];
 
+// PNG 1×1 transparente: basta para testar o print autenticado na ficha
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+export const FICHA = {
+  empresa: {
+    ...EMPRESA,
+    nome: "Hospital Exemplo S.A.",
+    estado: "QUALIFICANDO",
+    setor: "saude",
+    cidade: "Sorocaba",
+    uf: "SP",
+  },
+  dossie: {
+    ...DOSSIE,
+    descricao: "Hospital geral de alta complexidade.",
+    missao: null,
+    produtos_servicos: ["internação", "pronto-socorro"],
+    publicos_atendidos: ["pacientes particulares e de convênios"],
+    cidade: "Sorocaba",
+    uf: "SP",
+    porte_indicios: null,
+    mencoes_inclusao: [
+      {
+        tema: "pcd",
+        trecho: "Programa de inclusão de pessoas com deficiência.",
+        url: "https://hospitalexemplo.com.br/esg",
+      },
+    ],
+    sinais: [{ tipo: "outro", descricao: "Programa de inclusão no RH", url: "https://hospitalexemplo.com.br/esg" }],
+    lacunas: ["o site não informa número de leitos"],
+    paginas_lidas: ["https://hospitalexemplo.com.br/", "https://hospitalexemplo.com.br/esg"],
+    tecnologias_site: ["WordPress"],
+    raciocinio_resumido: "Dados da home e da página de ESG.",
+  },
+  auditoria: AUDITORIA,
+  evidencias: [
+    {
+      numero: 1,
+      titulo: ANALISE.top3_para_leigos[0].titulo,
+      pagina: "/contato",
+      print_indice: 0 as number | null,
+      caixa: { left: 20, top: 30, width: 25, height: 10 } as { left: number; top: number; width: number; height: number } | null,
+      alt: "Print da página /contato de hospitalexemplo.com.br, com o problema 1 destacado por uma caixa numerada.",
+    },
+    {
+      numero: 2,
+      titulo: ANALISE.top3_para_leigos[1].titulo,
+      pagina: "/",
+      print_indice: null as number | null,
+      caixa: null as { left: number; top: number; width: number; height: number } | null,
+      alt: "Print da página /.",
+    },
+  ],
+  relatorio_disponivel: true,
+  eventos: EVENTOS_FINAIS,
+};
+
 interface Opcoes {
   disjuntorAtingido?: boolean;
   respostaPost?: { status: number; corpo: unknown };
@@ -181,6 +242,7 @@ interface Opcoes {
   /** Andamento depois que o vendedor confirma o site. */
   andamentoDepoisDaConfirmacao?: Detalhe[];
   respostaConfirmacao?: { status: number; corpo: unknown };
+  ficha?: typeof FICHA;
 }
 
 function json(route: Route, status: number, corpo: unknown) {
@@ -243,6 +305,20 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
         consulta = 0;
       }
       return json(route, r.status, r.corpo);
+    }
+    if (url.pathname === `/empresas/${EMPRESA.id}/ficha`) return json(route, 200, opcoes.ficha ?? FICHA);
+    if (url.pathname === `/empresas/${EMPRESA.id}/relatorio.pdf`) {
+      return route.fulfill({ status: 200, headers: { ...CORS, "Content-Type": "application/pdf" }, body: "%PDF-1.7" });
+    }
+    if (url.pathname === `/empresas/${EMPRESA.id}/relatorio`) {
+      return route.fulfill({
+        status: 200,
+        headers: { ...CORS, "Content-Type": "text/html; charset=utf-8" },
+        body: "<!doctype html><html lang='pt-BR'><title>Relatório</title><main><h1>Relatório</h1></main></html>",
+      });
+    }
+    if (url.pathname === `/empresas/${EMPRESA.id}/prints/0`) {
+      return route.fulfill({ status: 200, headers: { ...CORS, "Content-Type": "image/png" }, body: PNG });
     }
     if (url.pathname === `/empresas/${EMPRESA.id}`) {
       const atual = andamento[Math.min(consulta, andamento.length - 1)];

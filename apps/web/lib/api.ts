@@ -190,3 +190,68 @@ export interface ProspeccaoResposta {
 export interface Disjuntores {
   custo: { custo_hoje_brl: string; teto_brl: string; atingido: boolean; mensagem: string };
 }
+
+// --- Ficha do Prospect (Tarefa 5) ---
+
+export interface DossieCompleto {
+  versao: number;
+  criado_em: string;
+  resumo: string[];
+  descricao: string | null;
+  missao: string | null;
+  produtos_servicos: string[];
+  publicos_atendidos: string[];
+  cidade: string | null;
+  uf: string | null;
+  porte_indicios: string | null;
+  mencoes_inclusao: { tema: string; trecho: string; url: string }[];
+  sinais: { tipo: string; descricao: string; url: string }[];
+  lacunas: string[];
+  paginas_lidas: string[];
+  tecnologias_site: string[];
+  raciocinio_resumido: string | null;
+}
+
+export interface Evidencia {
+  numero: number;
+  titulo: string;
+  pagina: string;
+  print_indice: number | null;
+  caixa: { left: number; top: number; width: number; height: number } | null;
+  alt: string;
+}
+
+export interface Ficha {
+  empresa: Empresa & { setor: string | null; cidade: string | null; uf: string | null };
+  dossie: DossieCompleto | null;
+  auditoria: AuditoriaResumo | null;
+  evidencias: Evidencia[];
+  relatorio_disponivel: boolean;
+  eventos: Evento[];
+}
+
+/** Baixa um arquivo protegido por login (o navegador não manda o token em links e imagens comuns). */
+export async function baixarArquivo(caminho: string): Promise<Blob> {
+  const token = lerToken();
+  let r: Response;
+  try {
+    r = await fetch(`${API_URL}${caminho}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  } catch {
+    throw new ErroApi(0, "Não foi possível conectar à API. Verifique a conexão e tente novamente.");
+  }
+  if (r.status === 401) {
+    sair();
+    throw new ErroApi(401, "Sua sessão expirou. Entre novamente.");
+  }
+  if (!r.ok) {
+    let detalhe: string | undefined;
+    try {
+      const corpo = await r.json();
+      if (typeof corpo?.detail === "string") detalhe = corpo.detail;
+    } catch {
+      /* resposta sem JSON */
+    }
+    throw new ErroApi(r.status, detalhe ?? "Não foi possível baixar o arquivo.");
+  }
+  return r.blob();
+}

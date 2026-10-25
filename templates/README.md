@@ -6,4 +6,6 @@ HTML + CSS dos documentos gerados pela plataforma, todos acessíveis (WCAG 2.2 A
 - `microsite/` — diagnóstico personalizado por prospect (Fase 5)
 - `proposta/` — proposta comercial em padrão de consultoria de tecnologia (Fase 6)
 
-Identidade visual Sinal Link: definir paleta, tipografia e logotipo em `marca.css` antes da Fase 1.
+Identidade visual Sinal Link (marca "Sinal Link" no Bloom): paleta em `relatorio/marca.css`; DM Sans (OFL)
+e logotipo em `relatorio/marca/`. O mini-relatório usa o mesmo HTML para a versão web e o PDF (WeasyPrint,
+PDF/UA-1); ver ADR 0006.

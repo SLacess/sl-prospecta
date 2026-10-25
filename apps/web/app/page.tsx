@@ -20,9 +20,10 @@ import { ConfirmarSite } from "./confirmar-site";
 const INTERVALO_MS = 2000;
 const LIMITE_CONSULTAS = 300; // ~10 minutos: pesquisa + auditoria técnica levam uns 2 a 3 min
 
-/** Eventos depois dos quais não há mais novidade a esperar nesta versão do pipeline (Tarefa 4). */
+/** Eventos depois dos quais não há mais novidade a esperar nesta versão do pipeline (Tarefa 5). */
 const EVENTOS_DE_PARADA = new Set([
-  "analise_pronta",
+  "relatorio_pronto",
+  "relatorio_falhou",
   "analise_falhou",
   "auditoria_bloqueada",
   "auditoria_falhou",
@@ -236,6 +237,9 @@ export default function PainelProspeccao() {
             )}
           </dl>
           <p className="hint">{acompanhando ? "Atualizando automaticamente…" : "Sem novidades no momento."}</p>
+          <p>
+            <a href={`/empresas/${detalhe.id}`}>Abrir ficha completa de {detalhe.nome}</a>
+          </p>
 
           {detalhe.confirmacao_dominio && !acompanhando && (
             <ConfirmarSite

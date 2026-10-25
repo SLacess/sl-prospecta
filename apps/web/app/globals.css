@@ -270,3 +270,15 @@ h4 { font-size: 1rem; margin: 1.1rem 0 0.4rem; }
   background: var(--bg);
   font-size: 0.92rem;
 }
+
+/* Ficha do Prospect (Tarefa 5) */
+button.secundario { background: var(--surface); color: var(--primary); }
+.evidencias { padding-left: 0; list-style: none; margin: 0; }
+.evidencias li { margin: 0 0 1.25rem; }
+.print-evidencia { position: relative; margin: 0.5rem 0 0; max-width: 640px; }
+.print-evidencia img { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; }
+.caixa-evidencia { position: absolute; border: 3px solid #c2188a; border-radius: 4px; }
+.caixa-evidencia span {
+  position: absolute; top: -1.4rem; left: -3px;
+  background: #c2188a; color: #ffffff; font-weight: 700; font-size: 0.85rem; padding: 0 0.4rem; border-radius: 4px;
+}
