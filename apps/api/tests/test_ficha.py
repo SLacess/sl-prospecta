@@ -164,8 +164,9 @@ def test_relatorio_indisponivel_antes_de_gerar(client, db, vendedor_headers, arm
 
 def test_baixa_o_pdf_e_a_versao_web(client, db, leitura_headers, armazenamento):
     empresa, auditoria = _empresa_completa(db)
-    armazenamento.arquivos[chave_relatorio(empresa.id, auditoria.id, "pdf")] = b"%PDF-1.7 teste"
-    armazenamento.arquivos[chave_relatorio(empresa.id, auditoria.id, "html")] = b"<html lang='pt-BR'>ok</html>"
+    arquivos = armazenamento.arquivos
+    arquivos[chave_relatorio(empresa.id, auditoria.id, "pdf")] = b"%PDF-1.7 teste"
+    arquivos[chave_relatorio(empresa.id, auditoria.id, "html")] = b"<html lang='pt-BR'>ok</html>"
 
     pdf = client.get(f"/empresas/{empresa.id}/relatorio.pdf", headers=leitura_headers)
     assert pdf.status_code == 200
