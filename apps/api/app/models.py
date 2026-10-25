@@ -1,7 +1,7 @@
 """Modelo de dados (CONSTITUICAO §17).
 
 Fase 0: usuários, empresas, eventos, ações de agentes, supressão, config.
-Fase 1: dossiês e auditorias (migração 0002).
+Fase 1: dossiês e auditorias (migração 0002); revisões dos achados (0003).
 Tabelas das fases seguintes (contatos, mensagens...) entram em migrações próprias.
 """
 
@@ -162,6 +162,31 @@ class Auditoria(Base):
     paginas_json: Mapped[list] = mapped_column(JSON, default=list)
     artefatos_urls: Mapped[list] = mapped_column(JSON, default=list)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RevisaoAchado(Base):
+    """Revisão humana de um achado (critério da Fase 1, §19). Os motivos alimentam o Analista (§14.3)."""
+
+    __tablename__ = "revisoes_achados"
+    __table_args__ = (
+        UniqueConstraint("auditoria_id", "tipo", "chave", name="uq_revisoes_auditoria_tipo_chave"),
+        CheckConstraint("veredito IN ('correto', 'parcial', 'incorreto')", name="ck_revisoes_veredito"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
+    auditoria_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("auditorias.id", ondelete="CASCADE"), index=True
+    )
+    empresa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("empresas.id", ondelete="CASCADE"))
+    tipo: Mapped[str] = mapped_column(String(30))  # achado_leigo | problema_tecnico | honestidade
+    chave: Mapped[str] = mapped_column(String(120))
+    veredito: Mapped[str] = mapped_column(String(20))
+    motivo: Mapped[str | None] = mapped_column(Text)
+    revisor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuarios.id"))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class Supressao(Base):

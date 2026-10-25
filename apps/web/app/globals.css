@@ -282,3 +282,20 @@ button.secundario { background: var(--surface); color: var(--primary); }
   position: absolute; top: -1.4rem; left: -3px;
   background: #c2188a; color: #ffffff; font-weight: 700; font-size: 0.85rem; padding: 0 0.4rem; border-radius: 4px;
 }
+
+/* Revisão da Fase 1 */
+.item-revisao { border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.9rem 0.8rem; margin: 0 0 0.75rem; }
+.item-revisao legend { font-weight: 600; padding: 0 0.25rem; }
+.opcoes-revisao { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin-top: 0.25rem; }
+.opcoes-revisao .opcao { display: inline-flex; align-items: center; gap: 0.4rem; }
+.opcoes-revisao label { display: inline; margin: 0; font-weight: 400; }
+.opcoes-revisao input[type="radio"], .checagem-honestidade input { width: 1.2rem; height: 1.2rem; margin: 0; }
+.motivo-revisao { margin-top: 0.6rem; }
+.motivo-revisao textarea {
+  width: 100%; font: inherit; padding: 0.5rem; border: 2px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text);
+}
+.checagem-honestidade { display: flex; align-items: center; gap: 0.5rem; margin: 1rem 0; }
+.checagem-honestidade label { display: inline; margin: 0; }
+.situacao { margin-top: 1rem; padding: 0.75rem 1rem; border-left: 4px solid var(--border); background: var(--bg); }
+.situacao.atingido { border-left-color: var(--primary); }

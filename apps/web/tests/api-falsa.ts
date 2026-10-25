@@ -84,6 +84,7 @@ export const ANALISE = {
 };
 
 export const AUDITORIA = {
+  id: "22222222-2222-4222-8222-222222222222",
   criado_em: "2026-10-24T13:03:00Z",
   nota: 58 as number | null,
   analise: ANALISE as typeof ANALISE | null,
@@ -234,6 +235,35 @@ export const FICHA = {
   eventos: EVENTOS_FINAIS,
 };
 
+export const REVISAO = {
+  auditoria_id: "22222222-2222-4222-8222-222222222222",
+  empresa_id: EMPRESA.id,
+  achados: [
+    { chave: "label", rotulo: ANALISE.top3_para_leigos[0].titulo, pagina: "/contato", veredito: null, motivo: null },
+    { chave: "image-alt", rotulo: ANALISE.top3_para_leigos[1].titulo, pagina: "/", veredito: null, motivo: null },
+  ],
+  tecnicos: [{ chave: "color-contrast", rotulo: "Contraste de cores", pagina: null, veredito: null, motivo: null }],
+  textos_honestos: null,
+  completa: false,
+  atualizado_em: null,
+};
+
+export const PLACAR = {
+  meta_auditorias: 20,
+  meta_setores: 4,
+  meta_percentual: 90,
+  auditorias_revisadas: 1,
+  setores: 1,
+  percentual_correto: 83.3,
+  promessas_encontradas: 0,
+  atingido: false,
+  pendencias: ["faltam 19 auditoria(s) revisada(s)", "faltam 3 setor(es) diferente(s)", "acertos em 83.3%, abaixo de 90%"],
+  lista: [
+    { empresa_id: EMPRESA.id, nome: "Hospital Exemplo S.A.", setor: "saude", nota: 58, revisada: true, percentual: 83.3 },
+    { empresa_id: "33333333-3333-4333-8333-333333333333", nome: "Faculdade Y", setor: "educacao", nota: 71, revisada: false, percentual: null },
+  ],
+};
+
 interface Opcoes {
   disjuntorAtingido?: boolean;
   respostaPost?: { status: number; corpo: unknown };
@@ -243,6 +273,8 @@ interface Opcoes {
   andamentoDepoisDaConfirmacao?: Detalhe[];
   respostaConfirmacao?: { status: number; corpo: unknown };
   ficha?: typeof FICHA;
+  papel?: "admin" | "vendedor" | "leitura";
+  respostaRevisao?: { status: number; corpo: unknown };
 }
 
 function json(route: Route, status: number, corpo: unknown) {
@@ -255,6 +287,7 @@ function json(route: Route, status: number, corpo: unknown) {
 
 export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
   const posts: unknown[] = [];
+  const revisoes: unknown[] = [];
   const confirmacoes: unknown[] = [];
   let andamento = opcoes.andamento ?? ANDAMENTO_PADRAO;
   let consulta = 0;
@@ -306,6 +339,18 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
       }
       return json(route, r.status, r.corpo);
     }
+    if (url.pathname === "/auth/me") {
+      return json(route, 200, { id: "u1", nome: "Marcos", email: "m@x.com", papel: opcoes.papel ?? "vendedor" });
+    }
+    if (url.pathname === "/revisao/fase1") return json(route, 200, PLACAR);
+    if (url.pathname === `/auditorias/${AUDITORIA.id}/revisao`) {
+      if (req.method() === "PUT") {
+        revisoes.push(req.postDataJSON());
+        const r = opcoes.respostaRevisao ?? { status: 200, corpo: { ...REVISAO, completa: true, textos_honestos: true } };
+        return json(route, r.status, r.corpo);
+      }
+      return json(route, 200, REVISAO);
+    }
     if (url.pathname === `/empresas/${EMPRESA.id}/ficha`) return json(route, 200, opcoes.ficha ?? FICHA);
     if (url.pathname === `/empresas/${EMPRESA.id}/relatorio.pdf`) {
       return route.fulfill({ status: 200, headers: { ...CORS, "Content-Type": "application/pdf" }, body: "%PDF-1.7" });
@@ -328,5 +373,5 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
     return json(route, 404, { detail: "não simulado" });
   });
 
-  return { posts, confirmacoes };
+  return { posts, confirmacoes, revisoes };
 }
