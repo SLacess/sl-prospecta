@@ -12,7 +12,10 @@ Departamento de SDR autônomo da **Sinal Link Acessibilidade** — prospecção 
 - ✅ Tarefa 1 — entrada e fila: prospecção individual por nome ou site, deduplicação por domínio,
   fila no worker, linha do tempo ao vivo no painel e disjuntor de custo diário de IA
   ([ADR 0002](docs/decisoes/0002-entrada-fila-disjuntor.md)).
-- ⏳ Tarefas 2 a 4: Pesquisador (dossiê), Auditor (auditoria de acessibilidade) e mini-relatório PDF.
+- ✅ Tarefa 2 — Pesquisador: resolve o site oficial a partir do nome (com confirmação do vendedor quando há
+  dúvida), lê as páginas públicas respeitando `robots.txt` e 1 req/s, e gera o dossiê com resumo de 5 linhas
+  ([ADR 0003](docs/decisoes/0003-pesquisador.md)).
+- ⏳ Tarefas 3 a 5: Auditor técnico, Auditor com IA e mini-relatório PDF.
 
 ## Rodando localmente
 

@@ -1,4 +1,4 @@
-"""Entrada individual de prospects e linha do tempo (CONSTITUICAO §7.2 e §12.1, tela 1)."""
+"""Entrada de prospects, confirmação do site e andamento (CONSTITUICAO §7.2 e §12.1, tela 1)."""
 
 import uuid
 from datetime import datetime
@@ -13,14 +13,16 @@ from sqlalchemy.orm import Session
 from app.budget import verificar_disjuntor
 from app.db import get_db
 from app.deps import get_current_user, require_role
-from app.domain import Alvo, EntradaInvalida, interpretar_entrada
-from app.models import Empresa, EstadoProspect, Evento, Papel, Usuario
+from app.domain import Alvo, EntradaInvalida, interpretar_entrada, normalizar_dominio
+from app.models import Dossie, Empresa, EstadoProspect, Evento, Papel, Usuario
 from app.queue import Fila, FilaIndisponivel, get_fila
 from app.timeline import registrar_evento
 
 router = APIRouter(tags=["prospecção"])
 
 LIMITE_EVENTOS = 200
+# Estados em que o orquestrador ainda tem trabalho de pesquisa a fazer (Tarefa 2)
+ESTADOS_EM_PESQUISA = (EstadoProspect.novo, EstadoProspect.pesquisando)
 
 
 class ProspeccaoIn(BaseModel):
@@ -46,8 +48,32 @@ class EventoOut(BaseModel):
     ocorrido_em: datetime
 
 
+class DossieResumoOut(BaseModel):
+    versao: int
+    setor: str | None
+    resumo: list[str]
+    criado_em: datetime
+
+
+class CandidatoDominioOut(BaseModel):
+    dominio: str
+    nome_oficial: str
+    evidencia_url: str
+
+
+class ConfirmacaoDominioOut(BaseModel):
+    mensagem: str
+    candidatos: list[CandidatoDominioOut]
+
+
 class EmpresaDetalheOut(EmpresaOut):
     eventos: list[EventoOut]
+    dossie: DossieResumoOut | None
+    confirmacao_dominio: ConfirmacaoDominioOut | None
+
+
+class DominioIn(BaseModel):
+    dominio: str = Field(max_length=500, description="Endereço do site oficial confirmado pelo vendedor")
 
 
 class ProspeccaoOut(BaseModel):
@@ -118,6 +144,36 @@ def _registrar_evento_sistema(db: Session, empresa_id: uuid.UUID, tipo: str, men
     db.commit()
 
 
+def _ultimo_dossie(db: Session, empresa_id: uuid.UUID) -> Dossie | None:
+    return db.scalar(
+        select(Dossie).where(Dossie.empresa_id == empresa_id).order_by(Dossie.versao.desc()).limit(1)
+    )
+
+
+def _precisa_pesquisa(db: Session, empresa: Empresa) -> bool:
+    return empresa.estado in ESTADOS_EM_PESQUISA and _ultimo_dossie(db, empresa.id) is None
+
+
+async def _enfileirar(db: Session, fila: Fila, empresa_id: uuid.UUID) -> None:
+    """Coloca a empresa na fila; se o Redis cair, registra a falha e responde 503."""
+    try:
+        novo_job = await fila.enfileirar_processamento(empresa_id)
+    except FilaIndisponivel:
+        await run_in_threadpool(
+            _registrar_evento_sistema, db, empresa_id, "falha_enfileirar",
+            "Não foi possível colocar a empresa na fila de processamento.",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="A empresa foi registrada, mas a fila de processamento está indisponível. "
+            "Tente de novo em alguns minutos.",
+        ) from None
+    if novo_job:
+        await run_in_threadpool(
+            _registrar_evento_sistema, db, empresa_id, "enfileirado", "Empresa na fila de processamento."
+        )
+
+
 @router.post("/prospeccao", response_model=ProspeccaoOut, status_code=status.HTTP_201_CREATED)
 async def prospectar(
     dados: ProspeccaoIn,
@@ -135,25 +191,10 @@ async def prospectar(
     if duplicada:
         response.status_code = status.HTTP_200_OK
 
-    # Só empresas ainda em NOVO entram na fila; o job_id fixo evita processamento em dobro
+    # Só entra na fila quem ainda não tem dossiê; o job_id fixo evita processamento em dobro
     na_fila = False
-    if empresa.estado == EstadoProspect.novo:
-        try:
-            novo_job = await fila.enfileirar_processamento(empresa.id)
-        except FilaIndisponivel:
-            await run_in_threadpool(
-                _registrar_evento_sistema, db, empresa.id, "falha_enfileirar",
-                "Não foi possível colocar a empresa na fila de processamento.",
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="A empresa foi registrada, mas a fila de processamento está indisponível. "
-                "Tente de novo em alguns minutos.",
-            ) from None
-        if novo_job:
-            await run_in_threadpool(
-                _registrar_evento_sistema, db, empresa.id, "enfileirado", "Empresa na fila de processamento."
-            )
+    if await run_in_threadpool(_precisa_pesquisa, db, empresa):
+        await _enfileirar(db, fila, empresa.id)
         na_fila = True
 
     disjuntor = await run_in_threadpool(verificar_disjuntor, db)
@@ -197,4 +238,73 @@ def detalhar_empresa(
         )
         for e in reversed(recentes)
     ]
-    return EmpresaDetalheOut(**EmpresaOut.model_validate(empresa).model_dump(), eventos=eventos)
+
+    dossie = _ultimo_dossie(db, empresa.id)
+    dossie_out = (
+        DossieResumoOut(
+            versao=dossie.versao, setor=(dossie.dados_json or {}).get("setor"),
+            resumo=[linha for linha in (dossie.resumo or "").splitlines() if linha.strip()],
+            criado_em=dossie.criado_em,
+        )
+        if dossie
+        else None
+    )
+
+    # O site fica pendente enquanto o último evento for o pedido de confirmação do orquestrador
+    confirmacao = None
+    if empresa.dominio is None and recentes and recentes[0].tipo == "confirmacao_dominio":
+        dados = recentes[0].dados_json or {}
+        confirmacao = ConfirmacaoDominioOut(
+            mensagem=str(dados.get("mensagem", "")),
+            candidatos=[CandidatoDominioOut.model_validate(c) for c in dados.get("candidatos", [])],
+        )
+
+    return EmpresaDetalheOut(
+        **EmpresaOut.model_validate(empresa).model_dump(), eventos=eventos, dossie=dossie_out,
+        confirmacao_dominio=confirmacao,
+    )
+
+
+def _confirmar_dominio(db: Session, empresa_id: uuid.UUID, texto: str, user: Usuario) -> Empresa:
+    empresa = db.get(Empresa, empresa_id)
+    if empresa is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empresa não encontrada.")
+    if empresa.dominio is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail=f"Esta empresa já tem o site {empresa.dominio}.")
+    if empresa.estado not in ESTADOS_EM_PESQUISA:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="O site só pode ser confirmado durante a pesquisa.")
+    try:
+        dominio = normalizar_dominio(texto)
+    except EntradaInvalida as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from None
+
+    dono = db.scalar(select(Empresa).where(Empresa.dominio == dominio))
+    if dono is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail=f"O site {dominio} já pertence à empresa {dono.nome}.")
+    empresa.dominio = dominio
+    registrar_evento(db, empresa.id, "dominio_confirmado", "humano",
+                     f"Site oficial confirmado pelo vendedor: {dominio}.", usuario_id=str(user.id))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail=f"O site {dominio} acabou de ser cadastrado para outra empresa.") from None
+    return empresa
+
+
+@router.post("/empresas/{empresa_id}/dominio", response_model=EmpresaOut)
+async def confirmar_dominio(
+    empresa_id: uuid.UUID,
+    dados: DominioIn,
+    db: Session = Depends(get_db),
+    user: Usuario = Depends(require_role(Papel.admin, Papel.vendedor)),
+    fila: Fila = Depends(get_fila),
+) -> EmpresaOut:
+    """O vendedor confirma o site quando o Pesquisador não acha um único candidato claro (§7.2)."""
+    empresa = await run_in_threadpool(_confirmar_dominio, db, empresa_id, dados.dominio, user)
+    await _enfileirar(db, fila, empresa.id)
+    return EmpresaOut.model_validate(empresa)

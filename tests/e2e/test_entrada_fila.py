@@ -1,16 +1,73 @@
+"""Fluxo API → fila → worker (Pesquisador) com Postgres e Redis reais.
+
+A Claude API e o site da empresa são simulados (nenhuma chamada externa no CI); o resto é real:
+migrações, fila arq, trava de 1 req/s no Redis, gravação do dossiê e de acoes_agentes.
+"""
+
 import asyncio
 import os
 import time
 import uuid
 from decimal import Decimal
 
+import httpx
 from arq.connections import RedisSettings, create_pool
 from arq.worker import Worker
 
 from app.config import get_settings
 from app.queue import job_id_processamento
 from slp_workers import main as worker_main
+from slp_workers.agents.researcher import Dossie, Localizacao
+from slp_workers.llm import Consumo, RespostaBusca
 from slp_workers.settings import get_config
+
+
+def _dossie(nome: str) -> Dossie:
+    return Dossie(
+        nome_oficial=nome, setor="saude", subsetor=None, descricao="Hospital.", missao=None,
+        produtos_servicos=[], publicos_atendidos=[], localizacao=Localizacao(cidade=None, uf=None, url=None),
+        porte_indicios=None, mencoes_inclusao=[], sinais=[], lacunas=["o site não informa a cidade"],
+        resumo_5_linhas=[f"Linha {i} sobre {nome}." for i in range(1, 6)],
+        raciocinio_resumido="Teste de fluxo.",
+    )
+
+
+class IAFluxo:
+    """Claude simulada: um candidato ambíguo na busca e um dossiê fixo."""
+
+    async def estruturado(self, *, modelo, sistema, conteudo, formato, effort, max_tokens):
+        return _dossie("Hospital do Fluxo"), Consumo(modelo=modelo, tokens_in=9000, tokens_out=700,
+                                                    custo_brl=Decimal("0.3000"))
+
+    async def com_busca_web(self, *, modelo, sistema, conteudo, max_buscas, effort, max_tokens):
+        texto = ('{"candidatos": [{"dominio": "rede-a.com.br", "nome_oficial": "Rede A", '
+                 '"evidencia_url": "https://rede-a.com.br/", "confianca": "media"}], "raciocinio_resumido": "x"}')
+        return RespostaBusca(texto=texto, urls_consultadas=["https://rede-a.com.br/"],
+                             consumo=Consumo(modelo=modelo, tokens_in=5000, tokens_out=200, buscas_web=1,
+                                             custo_brl=Decimal("0.1000")))
+
+
+def _site(request: httpx.Request) -> httpx.Response:
+    if request.url.path == "/robots.txt":
+        return httpx.Response(200, text="User-agent: *\nAllow: /\n")
+    if request.url.path == "/":
+        return httpx.Response(200, headers={"content-type": "text/html"},
+                              text='<html lang="pt-BR"><title>Hospital</title><body><p>Somos um hospital.</p>'
+                                   '<a href="/quem-somos">Quem somos</a></body></html>')
+    if request.url.path == "/quem-somos":
+        return httpx.Response(200, headers={"content-type": "text/html"}, text="<p>Fundado em 1950.</p>")
+    return httpx.Response(404)
+
+
+async def _startup_simulado(ctx: dict) -> None:
+    await worker_main.startup(ctx)
+    ctx["ia"] = IAFluxo()
+    ctx["transport"] = httpx.MockTransport(_site)
+
+    async def publico(host):
+        return ["93.184.216.34"]
+
+    ctx["resolvedor"] = publico
 
 
 def _rodar_worker(max_jobs: int = 1) -> None:
@@ -18,7 +75,7 @@ def _rodar_worker(max_jobs: int = 1) -> None:
         worker = Worker(
             functions=worker_main.WorkerSettings.functions,
             redis_settings=RedisSettings.from_dsn(os.environ["REDIS_URL"]),
-            on_startup=worker_main.startup,
+            on_startup=_startup_simulado,
             on_shutdown=worker_main.shutdown,
             burst=True,
             max_burst_jobs=max_jobs,
@@ -44,30 +101,64 @@ def _agendado_para_ms(job_id: str) -> float | None:
     return asyncio.run(_ler())
 
 
+def _detalhe(client, headers, empresa_id):
+    return client.get(f"/empresas/{empresa_id}", headers=headers).json()
+
+
 def _tipos(client, headers, empresa_id):
-    return [e["tipo"] for e in client.get(f"/empresas/{empresa_id}", headers=headers).json()["eventos"]]
+    return [e["tipo"] for e in _detalhe(client, headers, empresa_id)["eventos"]]
 
 
-def test_entrada_passa_pela_fila_e_chega_ao_worker(client, headers):
+def test_site_informado_vira_dossie(client, headers):
     dominio = f"fluxo-{uuid.uuid4().hex[:8]}.com.br"
 
     r = client.post("/prospeccao", json={"alvo": f"https://{dominio}/contato"}, headers=headers)
     assert r.status_code == 201, r.text
     empresa_id = r.json()["empresa"]["id"]
-    assert r.json()["empresa"]["estado"] == "NOVO"
+    custo_antes = Decimal(client.get("/governanca/disjuntores", headers=headers).json()["custo"]["custo_hoje_brl"])
 
     _rodar_worker()
 
-    assert _tipos(client, headers, empresa_id) == [
-        "entrada_recebida", "enfileirado", "processamento_iniciado", "aguardando_pesquisador",
-    ]
+    detalhe = _detalhe(client, headers, empresa_id)
+    tipos = [e["tipo"] for e in detalhe["eventos"]]
+    assert tipos[:3] == ["entrada_recebida", "enfileirado", "pesquisa_iniciada"]
+    assert tipos[-1] == "dossie_pronto"
+    assert detalhe["estado"] == "PESQUISANDO"
+    assert detalhe["nome"] == "Hospital do Fluxo"
+    assert detalhe["dossie"]["setor"] == "saude"
+    assert len(detalhe["dossie"]["resumo"]) == 5
 
-    # Mesma empresa por outra forma do endereço: deduplica e o arq não roda o job de novo
+    # O custo da ação de IA entrou no disjuntor do dia
+    custo_depois = Decimal(client.get("/governanca/disjuntores", headers=headers).json()["custo"]["custo_hoje_brl"])
+    assert custo_depois - custo_antes == Decimal("0.30")
+
+    # Mesma empresa por outra forma do endereço: deduplica e não volta para a fila (já tem dossiê)
     r2 = client.post("/prospeccao", json={"alvo": f"WWW.{dominio.upper()}"}, headers=headers)
     assert r2.status_code == 200
     assert r2.json()["duplicada"] is True
-    assert r2.json()["empresa"]["id"] == empresa_id
-    assert _tipos(client, headers, empresa_id)[-1] == "entrada_duplicada"
+    assert r2.json()["na_fila"] is False
+
+
+def test_nome_ambiguo_espera_o_vendedor_confirmar_o_site(client, headers):
+    nome = f"Rede Fluxo {uuid.uuid4().hex[:6]}"
+    r = client.post("/prospeccao", json={"alvo": nome}, headers=headers)
+    empresa_id = r.json()["empresa"]["id"]
+
+    _rodar_worker()
+    detalhe = _detalhe(client, headers, empresa_id)
+    assert detalhe["confirmacao_dominio"]["candidatos"][0]["dominio"] == "rede-a.com.br"
+    assert detalhe["dossie"] is None
+
+    dominio = f"rede-{uuid.uuid4().hex[:6]}.com.br"
+    c = client.post(f"/empresas/{empresa_id}/dominio", json={"dominio": dominio}, headers=headers)
+    assert c.status_code == 200, c.text
+
+    _rodar_worker()
+    detalhe = _detalhe(client, headers, empresa_id)
+    assert detalhe["dominio"] == dominio
+    assert detalhe["confirmacao_dominio"] is None
+    assert detalhe["dossie"] is not None
+    assert "dominio_confirmado" in [e["tipo"] for e in detalhe["eventos"]]
 
 
 def test_disjuntor_de_custo_pausa_o_job_no_worker(client, headers, monkeypatch):
@@ -85,7 +176,7 @@ def test_disjuntor_de_custo_pausa_o_job_no_worker(client, headers, monkeypatch):
 
     tipos = _tipos(client, headers, empresa_id)
     assert "fila_pausada_custo" in tipos
-    assert "processamento_iniciado" not in tipos
+    assert "pesquisa_iniciada" not in tipos
     # O job continua na fila, adiado para quando o orçamento reabrir
     agendado = _agendado_para_ms(job_id_processamento(uuid.UUID(empresa_id)))
     assert agendado is not None and agendado > time.time() * 1000 + 60_000

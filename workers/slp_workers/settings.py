@@ -15,6 +15,29 @@ class WorkerConfig(BaseSettings):
     daily_ai_budget_brl: Decimal = Decimal("30")
     business_timezone: str = "America/Sao_Paulo"
 
+    # IA — modelos nunca fixos no código de negócio (CONSTITUICAO §6). A chave vem de ANTHROPIC_API_KEY.
+    model_analysis: str = "claude-sonnet-5-5"
+    ai_refusal_fallback: bool = True
+    usd_brl_rate: Decimal = Decimal("5.50")
+    # Preço por milhão de tokens em US$ (entrada, saída). Sobrescreva com AI_PRICES_USD_PER_MTOK em JSON.
+    ai_prices_usd_per_mtok: dict[str, tuple[Decimal, Decimal]] = {
+        "claude-sonnet-5-5": (Decimal("2.00"), Decimal("10.00")),
+        "claude-haiku-5-5": (Decimal("0.10"), Decimal("0.50")),
+        "claude-opus-5-5": (Decimal("4.00"), Decimal("20.00")),
+    }
+    web_search_usd_per_request: Decimal = Decimal("0.01")
+
+    # Pesquisador (CONSTITUICAO §7.3 e §8.4)
+    research_max_pages: int = 6  # home + até 5 páginas institucionais
+    research_page_timeout_s: float = 15.0
+    research_max_bytes: int = 2_000_000
+    research_chars_per_page: int = 12_000
+    research_max_web_searches: int = 3
+    research_cost_cap_brl: Decimal = Decimal("2.00")  # teto por empresa pesquisada
+    crawler_user_agent: str = "SinalLinkA11yAudit/1.0 (+https://sinallink.com.br/auditoria)"
+    # Só para testes locais: permite ler sites em 127.0.0.1/rede privada
+    web_allow_private_hosts: bool = False
+
 
 @lru_cache
 def get_config() -> WorkerConfig:
