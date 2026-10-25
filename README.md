@@ -15,7 +15,10 @@ Departamento de SDR autônomo da **Sinal Link Acessibilidade** — prospecção 
 - ✅ Tarefa 2 — Pesquisador: resolve o site oficial a partir do nome (com confirmação do vendedor quando há
   dúvida), lê as páginas públicas respeitando `robots.txt` e 1 req/s, e gera o dossiê com resumo de 5 linhas
   ([ADR 0003](docs/decisoes/0003-pesquisador.md)).
-- ⏳ Tarefas 3 a 5: Auditor técnico, Auditor com IA e mini-relatório PDF.
+- ✅ Tarefa 3 — Auditor técnico: serviço `worker-audit` com Chromium testa a home e até 4 páginas-chave
+  (axe-core WCAG 2.2 AA, teclado, 320 px, prints no MinIO, plugin já instalado)
+  ([ADR 0004](docs/decisoes/0004-auditor-tecnico.md)).
+- ⏳ Tarefas 4 e 5: Auditor com IA (nota e achados para leigos) e mini-relatório PDF.
 
 ## Rodando localmente
 

@@ -101,7 +101,7 @@ def test_nome_cria_empresa_sem_dominio_e_deduplica_pelo_nome(client, db, fila, v
 def test_empresa_fora_de_novo_nao_volta_para_a_fila(client, db, fila, vendedor_headers):
     r1 = client.post("/prospeccao", json={"alvo": "exemplo.com.br"}, headers=vendedor_headers)
     empresa = db.get(Empresa, uuid.UUID(r1.json()["empresa"]["id"]))
-    empresa.estado = EstadoProspect.auditando
+    empresa.estado = EstadoProspect.qualificando
     db.commit()
     fila.enviados.clear()
 

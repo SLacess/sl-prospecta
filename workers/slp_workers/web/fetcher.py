@@ -127,11 +127,14 @@ def extrair_pagina(url: str, html: str, dominio: str, max_chars: int) -> Pagina:
     )
 
 
-def escolher_paginas(home: Pagina, maximo: int) -> list[str]:
+Categorias = list[tuple[str, tuple[str, ...]]]
+
+
+def escolher_paginas(home: Pagina, maximo: int, categorias: Categorias | None = None) -> list[str]:
     """Uma página por categoria institucional, na ordem de prioridade, sem repetir a home."""
     home_url = _url_canonica(home.url)
     escolhidas: list[str] = []
-    for _categoria, termos in CATEGORIAS_PAGINAS:
+    for _categoria, termos in categorias or CATEGORIAS_PAGINAS:
         if len(escolhidas) >= maximo:
             break
         melhor: tuple[int, int, int, str] | None = None

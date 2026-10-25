@@ -38,6 +38,20 @@ class WorkerConfig(BaseSettings):
     # Só para testes locais: permite ler sites em 127.0.0.1/rede privada
     web_allow_private_hosts: bool = False
 
+    # Auditor técnico (CONSTITUICAO §8.1 e §8.4) — roda no serviço worker-audit
+    audit_max_jobs: int = 2  # Chromium consome memória: no máximo 2 auditorias ao mesmo tempo
+    audit_max_pages: int = 5  # home + até 4 páginas-chave
+    audit_page_timeout_s: float = 45.0
+    audit_total_timeout_s: float = 360.0
+    audit_tab_presses: int = 40
+    audit_axe_path: str = "/app/vendor/axe.min.js"
+
+    # Prints das páginas (MinIO, compatível com S3)
+    minio_endpoint: str = "http://minio:9000"
+    minio_root_user: str = ""
+    minio_root_password: str = ""
+    minio_bucket: str = "artefatos"
+
 
 @lru_cache
 def get_config() -> WorkerConfig:

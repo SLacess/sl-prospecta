@@ -28,7 +28,7 @@ log "Versão atual: $PREV_TAG → nova: $NEW_TAG"
 export IMAGE_TAG="$NEW_TAG"
 
 log "Baixando imagens…"
-"${COMPOSE[@]}" pull api worker web
+"${COMPOSE[@]}" pull api worker worker-audit web
 
 log "Subindo banco e fila…"
 "${COMPOSE[@]}" up -d postgres redis minio

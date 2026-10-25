@@ -7,7 +7,7 @@ import pytest
 from arq import Retry
 from sqlalchemy import func, select
 
-from slp_workers.db import acoes_agentes, dossies, empresas, eventos
+from slp_workers.db import acoes_agentes, auditorias, dossies, empresas, eventos
 from slp_workers.llm import Consumo, ErroIA
 from slp_workers.main import WorkerSettings
 from slp_workers.orchestrator.budget import segundos_ate_reabrir, verificar_disjuntor
@@ -64,20 +64,22 @@ def _gastar(engine, custo):
 # --- Caminho principal -------------------------------------------------------
 
 
-def test_site_informado_vira_dossie(engine, empresa_id):
+def test_site_informado_vira_dossie_e_segue_para_auditoria(engine, empresa_id):
     ia = IAFalsa()
-    assert _rodar(montar_ctx(engine, ia), empresa_id) == "dossie_pronto"
+    ctx = montar_ctx(engine, ia)
+    assert _rodar(ctx, empresa_id) == "auditoria_enfileirada"
 
     tipos = _tipos(engine, empresa_id)
     assert tipos[0] == "pesquisa_iniciada"
-    assert tipos[-1] == "dossie_pronto"
+    assert tipos[-2:] == ["dossie_pronto", "auditoria_enfileirada"]
+    assert ctx["enfileirar_auditoria"].enviados == [empresa_id]
     assert "pagina_ignorada" in tipos  # /trabalhe-conosco respondeu 404
     assert all(e.origem == "sistema" and e.dados_json["mensagem"] for e in _eventos(engine, empresa_id))
     assert ia.chamadas == ["estruturado"]  # domínio já conhecido: nenhuma busca na web
     assert '<pagina url="https://exemplo.com.br/quem-somos">' in ia.conteudos[0]
 
     empresa = _empresa(engine, empresa_id)
-    assert empresa.estado == "PESQUISANDO"  # AUDITANDO entra com o Auditor (Tarefa 3)
+    assert empresa.estado == "AUDITANDO"
     assert (empresa.nome, empresa.setor, empresa.cidade, empresa.uf) == (
         "Hospital Exemplo S.A.",
         "saude",
@@ -101,13 +103,57 @@ def test_site_informado_vira_dossie(engine, empresa_id):
 
 def test_rodar_de_novo_nao_repete_a_pesquisa(engine, empresa_id):
     ia = IAFalsa()
-    _rodar(montar_ctx(engine, ia), empresa_id)
-    assert _rodar(montar_ctx(engine, ia), empresa_id) == "ja_pesquisada"
+    ctx = montar_ctx(engine, ia)
+    _rodar(ctx, empresa_id)
+    assert _rodar(ctx, empresa_id) == "auditoria_enfileirada"
     assert ia.chamadas == ["estruturado"]
+    assert ctx["enfileirar_auditoria"].enviados == [empresa_id]  # a fila não duplica
+    assert _tipos(engine, empresa_id).count("auditoria_enfileirada") == 1
+
+
+def test_empresa_com_dossie_de_antes_do_auditor_segue_para_auditoria(engine):
+    """Empresas que ficaram em PESQUISANDO com dossiê (Tarefa 2) entram na auditoria ao serem retomadas."""
+    eid = inserir_empresa(engine, estado="PESQUISANDO")
+    with engine.begin() as conn:
+        conn.execute(
+            dossies.insert().values(
+                id=uuid.uuid4(),
+                empresa_id=eid,
+                dados_json={},
+                resumo="x",
+                sinais_json={},
+                versao=1,
+                criado_em=datetime.now(UTC),
+            )
+        )
+    ia = IAFalsa()
+    ctx = montar_ctx(engine, ia)
+    assert _rodar(ctx, eid) == "auditoria_enfileirada"
+    assert _empresa(engine, eid).estado == "AUDITANDO"
+    assert ia.chamadas == []
+
+
+def test_empresa_ja_auditada_nao_volta_para_a_fila(engine):
+    eid = inserir_empresa(engine, estado="AUDITANDO")
+    with engine.begin() as conn:
+        conn.execute(
+            auditorias.insert().values(
+                id=uuid.uuid4(),
+                empresa_id=eid,
+                totais_json={},
+                achados_json=[],
+                paginas_json=[],
+                artefatos_urls=[],
+                criado_em=datetime.now(UTC),
+            )
+        )
+    ctx = montar_ctx(engine, IAFalsa())
+    assert _rodar(ctx, eid) == "ja_auditada"
+    assert ctx["enfileirar_auditoria"].enviados == []
 
 
 def test_empresa_fora_do_fluxo_da_pesquisa_e_ignorada(engine):
-    eid = inserir_empresa(engine, estado="AUDITANDO")
+    eid = inserir_empresa(engine, estado="QUALIFICANDO")
     assert _rodar(montar_ctx(engine, IAFalsa()), eid) == "ignorado"
     assert _tipos(engine, eid) == []
 
@@ -122,7 +168,7 @@ def test_empresa_inexistente_nao_quebra(engine):
 def test_nome_com_um_site_claro_resolve_e_pesquisa(engine):
     eid = inserir_empresa(engine, nome="Hospital Exemplo", dominio=None)
     ia = IAFalsa(busca_texto=BUSCA_UM_SITE, urls=["https://www.exemplo.com.br/", "https://g1.globo.com/x"])
-    assert _rodar(montar_ctx(engine, ia), eid) == "dossie_pronto"
+    assert _rodar(montar_ctx(engine, ia), eid) == "auditoria_enfileirada"
     assert ia.chamadas == ["busca", "estruturado"]
     assert _empresa(engine, eid).dominio == DOMINIO
     assert "dominio_identificado" in _tipos(engine, eid)
@@ -215,7 +261,7 @@ def test_disjuntor_atingido_adia_o_job_e_avisa(engine, empresa_id):
 def test_abaixo_do_teto_roda(engine, empresa_id):
     _gastar(engine, "29.99")
     assert verificar_disjuntor(engine).atingido is False
-    assert _rodar(montar_ctx(engine, IAFalsa()), empresa_id) == "dossie_pronto"
+    assert _rodar(montar_ctx(engine, IAFalsa()), empresa_id) == "auditoria_enfileirada"
 
 
 def test_teto_zero_pausa_tudo(engine, empresa_id, monkeypatch):

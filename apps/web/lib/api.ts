@@ -135,9 +135,29 @@ export interface CandidatoDominio {
   evidencia_url: string;
 }
 
+export interface PaginaAuditada {
+  url: string;
+  status: "ok" | "bloqueada" | "tempo_esgotado" | string;
+  erro: string | null;
+  problemas: number;
+  armadilha_de_foco: boolean;
+  link_pular_conteudo: boolean | null;
+  sem_indicador_de_foco: number;
+  rolagem_horizontal_320: boolean | null;
+}
+
+export interface AuditoriaResumo {
+  criado_em: string;
+  nota: number | null;
+  totais: Record<string, number>;
+  plugins: string[];
+  paginas: PaginaAuditada[];
+}
+
 export interface EmpresaDetalhe extends Empresa {
   eventos: Evento[];
   dossie: DossieResumo | null;
+  auditoria: AuditoriaResumo | null;
   confirmacao_dominio: { mensagem: string; candidatos: CandidatoDominio[] } | null;
 }
 

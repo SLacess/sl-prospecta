@@ -36,3 +36,6 @@ playwright-report/
 # Deploy
 .deployed_tag
 *.tsbuildinfo
+
+# Auditor: axe-core baixado no build (workers/scripts/baixar_axe.py)
+workers/vendor/
