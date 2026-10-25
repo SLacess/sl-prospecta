@@ -1,8 +1,8 @@
 """Ponto de entrada dos workers (fila Redis via arq).
 
 Todo job do pipeline passa pelo orquestrador (CONSTITUICAO §5 e §7). Fase 1:
-`processar_empresa`, enfileirado pela API quando uma empresa entra (ou tem o site confirmado),
-roda o Pesquisador (Tarefa 2).
+`processar_empresa`, enfileirado pela API quando uma empresa entra (ou tem o site confirmado) e pelo
+worker-audit quando a auditoria técnica termina: roda o Pesquisador e o Auditor com IA.
 """
 
 import logging
@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from arq import cron, func
 from arq.connections import RedisSettings
 
+from slp_workers.audit.artefatos import ArmazenamentoMinio
 from slp_workers.db import make_engine
 from slp_workers.llm import ClienteAnthropic
 from slp_workers.orchestrator.budget import MAX_TENTATIVAS_JOB_IA
@@ -36,6 +37,10 @@ async def startup(ctx: dict) -> None:
     ctx["engine"] = make_engine(config.database_url)
     ctx["ia"] = ClienteAnthropic(config)
     ctx["limitador"] = LimitadorRedis(ctx["redis"])  # 1 req/s por domínio entre todos os workers
+    # O Auditor com IA lê os prints salvos pelo worker-audit
+    ctx["armazenamento"] = ArmazenamentoMinio(
+        config.minio_endpoint, config.minio_root_user, config.minio_root_password, config.minio_bucket
+    )
     log.info("SL Prospecta worker iniciado")
 
 

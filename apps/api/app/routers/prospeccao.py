@@ -23,7 +23,7 @@ router = APIRouter(tags=["prospecção"])
 LIMITE_EVENTOS = 200
 # Estados em que o orquestrador ainda tem trabalho de pesquisa a fazer (Tarefa 2)
 ESTADOS_EM_PESQUISA = (EstadoProspect.novo, EstadoProspect.pesquisando)
-# Estados em que o orquestrador ainda tem trabalho a fazer na Fase 1 (pesquisa e auditoria técnica)
+# Estados em que o orquestrador ainda tem trabalho a fazer na Fase 1 (pesquisa, auditoria e análise com IA)
 ESTADOS_EM_PROCESSAMENTO = (*ESTADOS_EM_PESQUISA, EstadoProspect.auditando)
 
 
@@ -79,12 +79,38 @@ class PaginaAuditadaOut(BaseModel):
     rolagem_horizontal_320: bool | None = None
 
 
+class AchadoOut(BaseModel):
+    titulo: str
+    impacto_humano: str
+    quem_e_afetado: list[str]
+    criterio_wcag: str
+    pagina: str
+    trecho_html: str | None
+
+
+class IndicioVisualOut(BaseModel):
+    tipo: str
+    descricao: str
+    pagina: str
+
+
+class AnaliseOut(BaseModel):
+    """JSON do §8.2 sem os endereços dos prints, que continuam privados até a Tarefa 5."""
+
+    top3_para_leigos: list[AchadoOut]
+    plugin_resolve_parcialmente: list[str]
+    exige_ajuste_no_codigo: list[str]
+    indicios_visuais: list[IndicioVisualOut]
+    observacao_honestidade: str
+
+
 class AuditoriaResumoOut(BaseModel):
     criado_em: datetime
     nota: int | None
     totais: dict[str, int]
     plugins: list[str]
     paginas: list[PaginaAuditadaOut]
+    analise: AnaliseOut | None
 
 
 class EmpresaDetalheOut(EmpresaOut):
@@ -178,8 +204,11 @@ def _ultima_auditoria(db: Session, empresa_id: uuid.UUID) -> Auditoria | None:
 
 
 def _precisa_processamento(db: Session, empresa: Empresa) -> bool:
-    """Ainda falta pesquisa ou auditoria técnica: o orquestrador decide qual etapa retomar."""
-    return empresa.estado in ESTADOS_EM_PROCESSAMENTO and _ultima_auditoria(db, empresa.id) is None
+    """Ainda falta pesquisa, auditoria técnica ou análise com IA: o orquestrador decide qual etapa retomar.
+
+    A análise com IA tira a empresa de AUDITANDO, então basta olhar o estado.
+    """
+    return empresa.estado in ESTADOS_EM_PROCESSAMENTO
 
 
 def _resumo_auditoria(auditoria: Auditoria) -> AuditoriaResumoOut:
@@ -201,9 +230,27 @@ def _resumo_auditoria(auditoria: Auditoria) -> AuditoriaResumoOut:
             rolagem_horizontal_320=p.get("responsivo_320", {}).get("rolagem_horizontal"),
         ))
     totais = {k: int(v) for k, v in (auditoria.totais_json or {}).items() if isinstance(v, int)}
+    bruto = auditoria.achados_json if isinstance(auditoria.achados_json, dict) else None
+    analise = None
+    if bruto:
+        analise = AnaliseOut(
+            top3_para_leigos=[
+                AchadoOut(
+                    titulo=a["titulo"], impacto_humano=a["impacto_humano"],
+                    quem_e_afetado=a.get("quem_e_afetado", []), criterio_wcag=a["criterio_wcag"],
+                    pagina=a["pagina"],
+                    trecho_html=(a.get("evidencia") or {}).get("trecho_html"),
+                )
+                for a in bruto.get("top3_para_leigos", [])
+            ],
+            plugin_resolve_parcialmente=bruto.get("plugin_resolve_parcialmente", []),
+            exige_ajuste_no_codigo=bruto.get("exige_ajuste_no_codigo", []),
+            indicios_visuais=[IndicioVisualOut.model_validate(i) for i in bruto.get("indicios_visuais", [])],
+            observacao_honestidade=bruto.get("observacao_honestidade", ""),
+        )
     return AuditoriaResumoOut(
         criado_em=auditoria.criado_em, nota=auditoria.nota, totais=totais, plugins=sorted(plugins),
-        paginas=paginas,
+        paginas=paginas, analise=analise,
     )
 
 

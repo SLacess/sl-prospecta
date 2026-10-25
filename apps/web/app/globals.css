@@ -242,3 +242,31 @@ h3 { font-size: 1.05rem; margin: 1.25rem 0 0.5rem; }
   vertical-align: top;
 }
 .tabela-rolavel thead th { color: var(--text-muted); font-size: 0.92rem; }
+
+/* Análise da auditoria (Tarefa 4) */
+h4 { font-size: 1rem; margin: 1.1rem 0 0.4rem; }
+.nota { margin: 0.5rem 0 0; display: flex; align-items: baseline; gap: 0.4rem; }
+.nota-numero { font-size: 2.4rem; font-weight: 800; line-height: 1; }
+.achados { padding-left: 1.25rem; margin: 0; }
+.achados li { margin: 0 0 1rem; }
+.achados p { margin: 0.2rem 0; }
+.achado-titulo { font-weight: 700; }
+.achados pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem;
+  font-size: 0.88rem;
+}
+.achados summary { cursor: pointer; color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+.duas-colunas { display: grid; gap: 0 1.5rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.duas-colunas ul { margin: 0; padding-left: 1.25rem; }
+.observacao {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-left: 4px solid var(--border);
+  background: var(--bg);
+  font-size: 0.92rem;
+}

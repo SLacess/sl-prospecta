@@ -1,13 +1,14 @@
 """Orquestração da auditoria técnica (CONSTITUICAO §7.3 Etapa 2 e §8). Roda no worker-audit.
 
 Recebe a empresa em AUDITANDO, chama o motor (`slp_workers.audit.engine`) e grava o resultado bruto
-em `auditorias`. A nota 0–100 e os achados para leigos (§8.2) entram com o Auditor com IA (Tarefa 4),
-que também faz a passagem para QUALIFICANDO.
+em `auditorias`. Em seguida devolve a empresa à fila principal, onde o Auditor com IA dá a nota 0–100,
+explica os achados para leigos (§8.2) e faz a passagem para QUALIFICANDO.
 """
 
 import asyncio
 import logging
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -27,6 +28,18 @@ log = logging.getLogger("slp_workers.auditoria")
 AUDITANDO = "AUDITANDO"
 
 
+def _enfileirador_principal(redis: Any) -> Callable[[uuid.UUID], Awaitable[bool]]:
+    """A análise com IA roda no worker principal (fila padrão), pelo mesmo job do orquestrador."""
+
+    async def enfileirar(empresa_id: uuid.UUID) -> bool:
+        job = await redis.enqueue_job(
+            "processar_empresa", str(empresa_id), _job_id=f"processar_empresa:{empresa_id}"
+        )
+        return job is not None
+
+    return enfileirar
+
+
 @dataclass
 class DependenciasAuditoria:
     engine: Engine
@@ -34,6 +47,7 @@ class DependenciasAuditoria:
     armazenamento: Armazenamento
     config: WorkerConfig
     auditor: Auditor
+    enfileirar_analise: Callable[[uuid.UUID], Awaitable[bool]] | None = None
 
     @classmethod
     def do_ctx(cls, ctx: dict) -> "DependenciasAuditoria":
@@ -47,6 +61,8 @@ class DependenciasAuditoria:
             armazenamento=ctx["armazenamento"],
             config=config,
             auditor=auditor,
+            enfileirar_analise=ctx.get("enfileirar_analise")
+            or (_enfileirador_principal(ctx["redis"]) if "redis" in ctx else None),
         )
 
 
@@ -84,7 +100,7 @@ def mensagem_final(r: ResultadoAuditoria) -> str:
     ]
     if r.plugins:
         partes.append(f"Plugin de acessibilidade detectado: {', '.join(r.plugins)}.")
-    partes.append("A nota e os achados explicados entram na próxima versão.")
+    partes.append("Em seguida vem a análise com a nota e os achados explicados.")
     return " ".join(partes)
 
 
@@ -144,4 +160,6 @@ async def auditar_empresa(ctx: dict, empresa_id: str) -> str:
         totais=resultado.totais(),
         plugins=resultado.plugins,
     )
+    if deps.enfileirar_analise is not None:
+        await deps.enfileirar_analise(eid)
     return "auditoria_pronta"

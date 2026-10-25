@@ -5,8 +5,8 @@ Uso (no contêiner do worker):
     python -m slp_workers.cli retomar --listar # só mostra quem seria recolocado
 
 `retomar` serve para empresas que ficaram para trás numa mudança de versão: por exemplo, as que já
-tinham dossiê (PESQUISANDO) antes de o Auditor existir. Cada uma volta ao orquestrador, que decide
-a próxima etapa.
+tinham dossiê (PESQUISANDO) antes do Auditor, ou auditoria sem nota antes do Auditor com IA.
+Cada uma volta ao orquestrador, que decide a próxima etapa.
 """
 
 import argparse
@@ -17,7 +17,7 @@ from arq import create_pool
 from arq.connections import RedisSettings
 from sqlalchemy import select
 
-from slp_workers.db import auditorias, empresas, make_engine
+from slp_workers.db import empresas, make_engine
 from slp_workers.settings import get_config
 
 ESTADOS_EM_ANDAMENTO = ("NOVO", "PESQUISANDO", "AUDITANDO")
@@ -27,10 +27,10 @@ def _pendentes() -> list:
     engine = make_engine(get_config().database_url)
     try:
         with engine.connect() as conn:
-            auditadas = select(auditorias.c.empresa_id)
+            # A análise com IA tira a empresa de AUDITANDO: quem está nesses estados tem etapa pendente
             return conn.execute(
                 select(empresas.c.id, empresas.c.nome, empresas.c.estado).where(
-                    empresas.c.estado.in_(ESTADOS_EM_ANDAMENTO), empresas.c.id.not_in(auditadas)
+                    empresas.c.estado.in_(ESTADOS_EM_ANDAMENTO)
                 )
             ).all()
     finally:

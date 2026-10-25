@@ -20,9 +20,10 @@ import { ConfirmarSite } from "./confirmar-site";
 const INTERVALO_MS = 2000;
 const LIMITE_CONSULTAS = 300; // ~10 minutos: pesquisa + auditoria técnica levam uns 2 a 3 min
 
-/** Eventos depois dos quais não há mais novidade a esperar nesta versão do pipeline (Tarefa 3). */
+/** Eventos depois dos quais não há mais novidade a esperar nesta versão do pipeline (Tarefa 4). */
 const EVENTOS_DE_PARADA = new Set([
-  "auditoria_pronta",
+  "analise_pronta",
+  "analise_falhou",
   "auditoria_bloqueada",
   "auditoria_falhou",
   "confirmacao_dominio",

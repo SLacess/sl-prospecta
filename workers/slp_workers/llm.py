@@ -16,6 +16,8 @@ from pydantic import BaseModel
 from slp_workers.settings import WorkerConfig
 
 T = TypeVar("T", bound=BaseModel)
+# Texto puro ou blocos (texto + imagens), como na Messages API
+Conteudo = str | list[dict[str, Any]]
 
 MTOK = Decimal(1_000_000)
 FATOR_CACHE_LEITURA = Decimal("0.10")
@@ -108,7 +110,7 @@ class RespostaBusca:
 
 class ClienteIA(Protocol):
     async def estruturado(
-        self, *, modelo: str, sistema: str, conteudo: str, formato: type[T], effort: str, max_tokens: int
+        self, *, modelo: str, sistema: str, conteudo: Conteudo, formato: type[T], effort: str, max_tokens: int
     ) -> tuple[T, Consumo]: ...
 
     async def com_busca_web(
@@ -152,7 +154,7 @@ class ClienteAnthropic:
             raise ErroIA("a resposta passou do limite de tamanho", consumo)
 
     async def estruturado(
-        self, *, modelo: str, sistema: str, conteudo: str, formato: type[T], effort: str, max_tokens: int
+        self, *, modelo: str, sistema: str, conteudo: Conteudo, formato: type[T], effort: str, max_tokens: int
     ) -> tuple[T, Consumo]:
         inicio = time.monotonic()
         resposta = await self._chamar(

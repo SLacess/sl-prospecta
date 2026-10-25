@@ -12,6 +12,13 @@ log = logging.getLogger("slp_workers.artefatos")
 class Armazenamento(Protocol):
     async def salvar_png(self, chave: str, dados: bytes) -> str | None: ...
 
+    async def ler(self, url: str) -> bytes | None: ...
+
+
+def _chave(url: str, bucket: str) -> str | None:
+    prefixo = f"s3://{bucket}/"
+    return url[len(prefixo) :] if url.startswith(prefixo) else None
+
 
 class ArmazenamentoMinio:
     def __init__(self, endpoint: str, usuario: str, senha: str, bucket: str) -> None:
@@ -40,6 +47,25 @@ class ArmazenamentoMinio:
             log.warning("print não salvo (%s): %s", chave, exc)
             return None
 
+    def _ler(self, chave: str) -> bytes:
+        resposta = self._cliente.get_object(self._bucket, chave)
+        try:
+            return resposta.read()
+        finally:
+            resposta.close()
+            resposta.release_conn()
+
+    async def ler(self, url: str) -> bytes | None:
+        """Print salvo pelo Auditor técnico; None se não existir (a análise segue sem a imagem)."""
+        chave = _chave(url, self._bucket)
+        if chave is None:
+            return None
+        try:
+            return await asyncio.to_thread(self._ler, chave)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("print não lido (%s): %s", url, exc)
+            return None
+
 
 class ArmazenamentoMemoria:
     """Para testes."""
@@ -50,3 +76,7 @@ class ArmazenamentoMemoria:
     async def salvar_png(self, chave: str, dados: bytes) -> str | None:
         self.arquivos[chave] = dados
         return f"s3://teste/{chave}"
+
+    async def ler(self, url: str) -> bytes | None:
+        chave = _chave(url, "teste")
+        return self.arquivos.get(chave) if chave else None

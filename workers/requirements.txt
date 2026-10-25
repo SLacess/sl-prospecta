@@ -6,4 +6,4 @@ tzdata>=2024.1  # fuso America/Sao_Paulo do disjuntor de custo
 anthropic==2.3.*
 httpx==0.28.*
 beautifulsoup4==4.13.*
-# Fase 1 (tarefas 3 e 4): playwright
+minio==7.2.*  # prints da auditoria (o Auditor com IA lê os prints no worker principal)
