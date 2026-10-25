@@ -2,4 +2,5 @@ arq==0.26.*
 pydantic-settings==2.6.*
 sqlalchemy==2.0.*
 psycopg[binary]==3.2.*
-# Fase 1: anthropic, playwright, httpx, beautifulsoup4
+tzdata>=2024.1  # fuso America/Sao_Paulo do disjuntor de custo
+# Fase 1 (tarefas 2 a 4): anthropic, playwright, httpx, beautifulsoup4

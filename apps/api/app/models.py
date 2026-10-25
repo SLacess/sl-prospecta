@@ -1,7 +1,8 @@
-"""Modelo de dados da Fase 0 (CONSTITUICAO §17).
+"""Modelo de dados (CONSTITUICAO §17).
 
-Tabelas das fases seguintes (dossies, auditorias, contatos, mensagens...) entram
-em migrações próprias quando cada fase começar.
+Fase 0: usuários, empresas, eventos, ações de agentes, supressão, config.
+Fase 1: dossiês e auditorias (migração 0002).
+Tabelas das fases seguintes (contatos, mensagens...) entram em migrações próprias.
 """
 
 import enum
@@ -9,7 +10,20 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -84,6 +98,7 @@ class Evento(Base):
     """Linha do tempo unificada (CONSTITUICAO §12.1)."""
 
     __tablename__ = "eventos"
+    __table_args__ = (Index("ix_eventos_empresa_ocorrido", "empresa_id", "ocorrido_em"),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
     empresa_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("empresas.id"), index=True)
@@ -110,6 +125,41 @@ class AcaoAgente(Base):
     tokens_out: Mapped[int] = mapped_column(Integer, default=0)
     custo: Mapped[Decimal] = mapped_column(Numeric(10, 4), default=0)
     duracao_ms: Mapped[int] = mapped_column(Integer, default=0)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class Dossie(Base):
+    """Saída do Pesquisador (CONSTITUICAO §7.3, Etapa 1). Uma versão nova a cada repesquisa."""
+
+    __tablename__ = "dossies"
+    __table_args__ = (UniqueConstraint("empresa_id", "versao", name="uq_dossies_empresa_versao"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
+    empresa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("empresas.id", ondelete="CASCADE"), index=True)
+    dados_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    resumo: Mapped[str | None] = mapped_column(Text)
+    sinais_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    versao: Mapped[int] = mapped_column(Integer, default=1)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Auditoria(Base):
+    """Saída do Auditor (CONSTITUICAO §8.2): nota 0–100, achados, páginas e artefatos (prints)."""
+
+    __tablename__ = "auditorias"
+    __table_args__ = (
+        CheckConstraint("nota IS NULL OR (nota >= 0 AND nota <= 100)", name="ck_auditorias_nota_0_100"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
+    empresa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("empresas.id", ondelete="CASCADE"), index=True)
+    nota: Mapped[int | None] = mapped_column(Integer)
+    totais_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    achados_json: Mapped[list] = mapped_column(JSON, default=list)
+    paginas_json: Mapped[list] = mapped_column(JSON, default=list)
+    artefatos_urls: Mapped[list] = mapped_column(JSON, default=list)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

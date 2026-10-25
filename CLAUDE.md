@@ -58,5 +58,6 @@ cd apps/web && npm install && npm run dev
 - Estados do prospect seguem exatamente a máquina de estados do §7.1. Não crie estados novos sem emendar a Constituição.
 
 ## Fase atual
-**Fase 0 — Fundação** (§19): repositório, Docker Compose, CI/CD, VPS, autenticação, banco.
-Próxima: **Fase 1 — Auditor + Pesquisador**. Não antecipe funcionalidades de fases futuras sem pedido explícito.
+**Fase 1 — Auditor + Pesquisador** (§19): entrada por nome/URL, fila, dossiê, auditoria completa, mini-relatório PDF.
+Critério para avançar: 20 auditorias revisadas por Marcos com ≥ 90% de achados corretos.
+Próxima: **Fase 2 — Qualificação + Decisores + Lote**. Não antecipe funcionalidades de fases futuras sem pedido explícito.

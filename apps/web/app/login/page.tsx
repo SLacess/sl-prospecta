@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { API_URL, guardarToken } from "@/lib/api";
 
 export default function Login() {
   const [erro, setErro] = useState("");
@@ -27,12 +27,8 @@ export default function Login() {
         return;
       }
       const { access_token } = await r.json();
-      // Fase 0: token em sessionStorage. Fase 1: migrar para cookie httpOnly via rota do Next.
-      try {
-        sessionStorage.setItem("slp_token", access_token);
-      } catch {
-        /* armazenamento indisponível */
-      }
+      // Token em sessionStorage; a migração para cookie httpOnly é tarefa própria (ADR 0002)
+      guardarToken(access_token);
       setStatus("Login realizado. Redirecionando…");
       window.location.href = "/";
     } catch {
