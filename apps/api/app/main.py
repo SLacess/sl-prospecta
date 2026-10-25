@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.queue import fechar_fila
-from app.routers import auth, ficha, governanca, health, prospeccao
+from app.routers import auth, ficha, governanca, health, prospeccao, revisao
 
 settings = get_settings()
 
@@ -40,6 +40,7 @@ app.include_router(auth.router)
 app.include_router(prospeccao.router)
 app.include_router(governanca.router)
 app.include_router(ficha.router)
+app.include_router(revisao.router)
 
 
 @app.get("/", include_in_schema=False)

@@ -13,7 +13,10 @@ import {
   lerToken,
   ROTULO_ESTADO,
   ROTULO_SETOR,
+  type UsuarioAtual,
 } from "@/lib/api";
+
+import { RevisaoAuditoria } from "./revisao";
 
 const TEMA: Record<string, string> = {
   inclusao: "Inclusão",
@@ -92,6 +95,7 @@ export default function FichaDoProspect() {
   const [erro, setErro] = useState("");
   const [anuncio, setAnuncio] = useState("");
   const [baixando, setBaixando] = useState(false);
+  const [usuario, setUsuario] = useState<UsuarioAtual | null>(null);
 
   useEffect(() => {
     if (!lerToken()) {
@@ -101,6 +105,9 @@ export default function FichaDoProspect() {
     apiFetch<Ficha>(`/empresas/${id}/ficha`)
       .then(setFicha)
       .catch((e) => setErro(e instanceof ErroApi ? e.message : "Não foi possível carregar a ficha."));
+    apiFetch<UsuarioAtual>("/auth/me")
+      .then(setUsuario)
+      .catch(() => setUsuario(null));
   }, [id]);
 
   async function baixarPdf() {
@@ -282,6 +289,10 @@ export default function FichaDoProspect() {
             </>
           )}
         </section>
+      )}
+
+      {usuario?.papel === "admin" && auditoria?.nota !== null && auditoria?.analise && (
+        <RevisaoAuditoria auditoriaId={auditoria.id} />
       )}
 
       <section className="card" aria-labelledby="titulo-linha" style={{ marginTop: "1.5rem" }}>

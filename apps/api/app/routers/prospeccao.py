@@ -105,6 +105,7 @@ class AnaliseOut(BaseModel):
 
 
 class AuditoriaResumoOut(BaseModel):
+    id: uuid.UUID
     criado_em: datetime
     nota: int | None
     totais: dict[str, int]
@@ -249,8 +250,8 @@ def _resumo_auditoria(auditoria: Auditoria) -> AuditoriaResumoOut:
             observacao_honestidade=bruto.get("observacao_honestidade", ""),
         )
     return AuditoriaResumoOut(
-        criado_em=auditoria.criado_em, nota=auditoria.nota, totais=totais, plugins=sorted(plugins),
-        paginas=paginas, analise=analise,
+        id=auditoria.id, criado_em=auditoria.criado_em, nota=auditoria.nota, totais=totais,
+        plugins=sorted(plugins), paginas=paginas, analise=analise,
     )
 
 

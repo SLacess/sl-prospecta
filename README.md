@@ -24,7 +24,7 @@ Departamento de SDR autônomo da **Sinal Link Acessibilidade** — prospecção 
 - ✅ Tarefa 5 — mini-relatório de 1 página A4 (PDF com tags e versão web) com a marca Sinal Link, e a
   Ficha do Prospect no painel ([ADR 0006](docs/decisoes/0006-mini-relatorio-e-ficha.md)).
 
-**Próximo passo da Fase 1:** revisar 20 auditorias reais (≥ 90% de achados corretos) para avançar à Fase 2.
+**Próximo passo da Fase 1:** revisar 20 auditorias reais de pelo menos 4 setores (≥ 90% de achados corretos) na tela **Revisão da Fase 1** do painel ([ADR 0007](docs/decisoes/0007-revisao-fase1.md)); com o critério atingido, segue a Fase 2.
 
 ## Rodando localmente
 

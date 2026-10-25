@@ -164,6 +164,7 @@ export interface AnaliseAuditoria {
 }
 
 export interface AuditoriaResumo {
+  id: string;
   criado_em: string;
   nota: number | null;
   totais: Record<string, number>;
@@ -254,4 +255,53 @@ export async function baixarArquivo(caminho: string): Promise<Blob> {
     throw new ErroApi(r.status, detalhe ?? "Não foi possível baixar o arquivo.");
   }
   return r.blob();
+}
+
+// --- Revisão da Fase 1 (critério do §19) ---
+
+export type Veredito = "correto" | "parcial" | "incorreto";
+
+export interface ItemRevisao {
+  chave: string;
+  rotulo: string;
+  pagina: string | null;
+  veredito: Veredito | null;
+  motivo: string | null;
+}
+
+export interface Revisao {
+  auditoria_id: string;
+  empresa_id: string;
+  achados: ItemRevisao[];
+  tecnicos: ItemRevisao[];
+  textos_honestos: boolean | null;
+  completa: boolean;
+  atualizado_em: string | null;
+}
+
+export interface Placar {
+  meta_auditorias: number;
+  meta_setores: number;
+  meta_percentual: number;
+  auditorias_revisadas: number;
+  setores: number;
+  percentual_correto: number | null;
+  promessas_encontradas: number;
+  atingido: boolean;
+  pendencias: string[];
+  lista: {
+    empresa_id: string;
+    nome: string;
+    setor: string | null;
+    nota: number | null;
+    revisada: boolean;
+    percentual: number | null;
+  }[];
+}
+
+export interface UsuarioAtual {
+  id: string;
+  nome: string;
+  email: string;
+  papel: "admin" | "vendedor" | "leitura";
 }
