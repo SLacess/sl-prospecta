@@ -113,8 +113,32 @@ export interface Evento {
   ocorrido_em: string;
 }
 
+export const ROTULO_SETOR: Record<string, string> = {
+  saude: "Saúde",
+  educacao: "Educação",
+  utilities: "Utilities e concessões",
+  ecommerce: "E-commerce e varejo",
+  financeiro: "Financeiro",
+  outro: "Outro",
+};
+
+export interface DossieResumo {
+  versao: number;
+  setor: string | null;
+  resumo: string[];
+  criado_em: string;
+}
+
+export interface CandidatoDominio {
+  dominio: string;
+  nome_oficial: string;
+  evidencia_url: string;
+}
+
 export interface EmpresaDetalhe extends Empresa {
   eventos: Evento[];
+  dossie: DossieResumo | null;
+  confirmacao_dominio: { mensagem: string; candidatos: CandidatoDominio[] } | null;
 }
 
 export interface ProspeccaoResposta {

@@ -1,7 +1,8 @@
 """Ponto de entrada dos workers (fila Redis via arq).
 
-Todo job do pipeline passa pelo orquestrador (CONSTITUICAO §5 e §7). Fase 1, Tarefa 1:
-`processar_empresa`, enfileirado pela API quando uma empresa entra em NOVO.
+Todo job do pipeline passa pelo orquestrador (CONSTITUICAO §5 e §7). Fase 1:
+`processar_empresa`, enfileirado pela API quando uma empresa entra (ou tem o site confirmado),
+roda o Pesquisador (Tarefa 2).
 """
 
 import logging
@@ -11,9 +12,11 @@ from arq import cron, func
 from arq.connections import RedisSettings
 
 from slp_workers.db import make_engine
+from slp_workers.llm import ClienteAnthropic
 from slp_workers.orchestrator.budget import MAX_TENTATIVAS_JOB_IA
 from slp_workers.orchestrator.pipeline import processar_empresa
 from slp_workers.settings import get_config
+from slp_workers.web.ratelimit import LimitadorRedis
 
 log = logging.getLogger("slp_workers")
 
@@ -28,7 +31,11 @@ async def heartbeat(ctx: dict) -> None:
 
 
 async def startup(ctx: dict) -> None:
-    ctx["engine"] = make_engine(get_config().database_url)
+    config = get_config()
+    ctx["config"] = config
+    ctx["engine"] = make_engine(config.database_url)
+    ctx["ia"] = ClienteAnthropic(config)
+    ctx["limitador"] = LimitadorRedis(ctx["redis"])  # 1 req/s por domínio entre todos os workers
     log.info("SL Prospecta worker iniciado")
 
 
@@ -39,7 +46,8 @@ async def shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [ping, func(processar_empresa, max_tries=MAX_TENTATIVAS_JOB_IA)]
+    # keep_result=0: o job_id fixo evita duplicata só enquanto o job existe; terminado, a empresa pode voltar
+    functions = [ping, func(processar_empresa, max_tries=MAX_TENTATIVAS_JOB_IA, keep_result=0)]
     cron_jobs = [cron(heartbeat, minute={0, 15, 30, 45})]
     on_startup = startup
     on_shutdown = shutdown

@@ -10,14 +10,26 @@ import {
   lerToken,
   type ProspeccaoResposta,
   ROTULO_ESTADO,
+  ROTULO_SETOR,
 } from "@/lib/api";
+
+import { ConfirmarSite } from "./confirmar-site";
 
 /** Intervalo da consulta ao andamento (ADR 0002: consulta periódica em vez de WebSocket na Fase 1). */
 const INTERVALO_MS = 2000;
 const LIMITE_CONSULTAS = 150; // ~5 minutos acompanhando a mesma empresa
 
-/** Eventos depois dos quais não há mais novidade a esperar nesta versão do pipeline. */
-const EVENTOS_DE_PARADA = new Set(["aguardando_pesquisador", "fila_pausada_custo", "falha_enfileirar"]);
+/** Eventos depois dos quais não há mais novidade a esperar nesta versão do pipeline (Tarefa 2). */
+const EVENTOS_DE_PARADA = new Set([
+  "dossie_pronto",
+  "confirmacao_dominio",
+  "dominio_ja_cadastrado",
+  "site_indisponivel",
+  "pesquisa_falhou",
+  "teto_por_empresa",
+  "fila_pausada_custo",
+  "falha_enfileirar",
+]);
 
 function horario(iso: string): string {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -25,13 +37,16 @@ function horario(iso: string): string {
 
 /**
  * Painel de Prospecção (CONSTITUICAO §12.1, tela 1).
- * Fase 1: a prospecção individual cadastra a empresa, coloca na fila e mostra o andamento ao vivo.
+ * Fase 1: a prospecção individual cadastra a empresa, o Pesquisador monta o dossiê e o painel mostra
+ * o andamento ao vivo, o resumo e, quando preciso, pede a confirmação do site oficial.
  */
 export default function PainelProspeccao() {
   const [anuncio, setAnuncio] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  // Cada rodada reinicia o acompanhamento, inclusive da mesma empresa
+  const [rodada, setRodada] = useState(0);
   const [detalhe, setDetalhe] = useState<EmpresaDetalhe | null>(null);
   const [acompanhando, setAcompanhando] = useState(false);
   const [disjuntor, setDisjuntor] = useState<Disjuntores["custo"] | null>(null);
@@ -78,7 +93,7 @@ export default function PainelProspeccao() {
         }
         if ((ultimo && EVENTOS_DE_PARADA.has(ultimo.tipo)) || consultas >= LIMITE_CONSULTAS) {
           setAcompanhando(false);
-          if (ultimo?.tipo === "fila_pausada_custo") void atualizarDisjuntor();
+          void atualizarDisjuntor(); // o custo do dia mudou
           return;
         }
       } catch (e) {
@@ -96,7 +111,18 @@ export default function PainelProspeccao() {
       ativo = false;
       if (timer) clearTimeout(timer);
     };
-  }, [empresaId, atualizarDisjuntor]);
+  }, [empresaId, rodada, atualizarDisjuntor]);
+
+  /** Reinicia o acompanhamento, inclusive da mesma empresa (entrada duplicada ou site confirmado). */
+  function acompanhar(id: string) {
+    setEmpresaId(id);
+    setRodada((r) => r + 1);
+  }
+
+  function aoConfirmarSite(dominio: string) {
+    setAnuncio(`Site ${dominio} confirmado. A pesquisa continua.`);
+    if (detalhe) acompanhar(detalhe.id);
+  }
 
   async function aoProspectar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -121,9 +147,7 @@ export default function PainelProspeccao() {
       if (campoRef.current) campoRef.current.value = "";
       ultimoEventoAnunciado.current = null;
       setDetalhe(null);
-      setEmpresaId(null);
-      // Reinicia o acompanhamento mesmo se for a mesma empresa (entrada duplicada)
-      setTimeout(() => setEmpresaId(r.empresa.id), 0);
+      acompanhar(r.empresa.id);
       if (r.fila_pausada) void atualizarDisjuntor();
     } catch (e) {
       setAnuncio("");
@@ -183,6 +207,7 @@ export default function PainelProspeccao() {
         <div id="alvo-erro" role="alert" className={erro ? "status error" : undefined}>
           {erro}
         </div>
+        {disjuntor && !disjuntor.atingido && <p className="hint custo-dia">{disjuntor.mensagem}</p>}
       </section>
 
       {detalhe && (
@@ -199,8 +224,39 @@ export default function PainelProspeccao() {
               <dt>Site</dt>
               <dd>{detalhe.dominio ?? "Ainda não identificado"}</dd>
             </div>
+            {detalhe.dossie?.setor && (
+              <div>
+                <dt>Setor</dt>
+                <dd>{ROTULO_SETOR[detalhe.dossie.setor] ?? detalhe.dossie.setor}</dd>
+              </div>
+            )}
           </dl>
           <p className="hint">{acompanhando ? "Atualizando automaticamente…" : "Sem novidades no momento."}</p>
+
+          {detalhe.confirmacao_dominio && !acompanhando && (
+            <ConfirmarSite
+              key={detalhe.eventos.at(-1)?.id}
+              empresaId={detalhe.id}
+              nome={detalhe.nome}
+              mensagem={detalhe.confirmacao_dominio.mensagem}
+              candidatos={detalhe.confirmacao_dominio.candidatos}
+              aoConfirmar={aoConfirmarSite}
+            />
+          )}
+
+          {detalhe.dossie && (
+            <>
+              <h3>Resumo da pesquisa</h3>
+              <ul className="resumo-dossie">
+                {detalhe.dossie.resumo.map((linha, i) => (
+                  <li key={i}>{linha}</li>
+                ))}
+              </ul>
+              <p className="hint">
+                Gerado com apoio de IA a partir das páginas públicas do site. Confira antes de usar com o cliente.
+              </p>
+            </>
+          )}
           <h3>Linha do tempo</h3>
           <ol className="linha-do-tempo">
             {detalhe.eventos.map((ev) => (

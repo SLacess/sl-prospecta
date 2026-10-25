@@ -1,0 +1,238 @@
+{
+  "$defs": {
+    "Localizacao": {
+      "properties": {
+        "cidade": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cidade"
+        },
+        "uf": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Sigla do estado, ex.: SP",
+          "title": "Uf"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "URL exata da página onde a localização aparece",
+          "title": "Url"
+        }
+      },
+      "required": [
+        "cidade",
+        "uf",
+        "url"
+      ],
+      "title": "Localizacao",
+      "type": "object"
+    },
+    "Mencao": {
+      "properties": {
+        "tema": {
+          "enum": [
+            "inclusao",
+            "diversidade",
+            "pcd",
+            "acessibilidade",
+            "esg"
+          ],
+          "title": "Tema",
+          "type": "string"
+        },
+        "trecho": {
+          "description": "Fragmento do texto da página que comprova a menção",
+          "title": "Trecho",
+          "type": "string"
+        },
+        "url": {
+          "description": "URL exata de uma das páginas recebidas",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tema",
+        "trecho",
+        "url"
+      ],
+      "title": "Mencao",
+      "type": "object"
+    },
+    "Sinal": {
+      "properties": {
+        "tipo": {
+          "enum": [
+            "vaga_pcd_ou_inclusao",
+            "relatorio_esg",
+            "pagina_acessibilidade",
+            "app_ou_portal",
+            "outro"
+          ],
+          "title": "Tipo",
+          "type": "string"
+        },
+        "descricao": {
+          "title": "Descricao",
+          "type": "string"
+        },
+        "url": {
+          "description": "URL exata de uma das páginas recebidas",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tipo",
+        "descricao",
+        "url"
+      ],
+      "title": "Sinal",
+      "type": "object"
+    }
+  },
+  "description": "`dossie.json` (CONSTITUICAO §7.3). Esquema publicado em packages/schemas/dossie.schema.json.",
+  "properties": {
+    "nome_oficial": {
+      "title": "Nome Oficial",
+      "type": "string"
+    },
+    "setor": {
+      "enum": [
+        "saude",
+        "educacao",
+        "utilities",
+        "ecommerce",
+        "financeiro",
+        "outro"
+      ],
+      "title": "Setor",
+      "type": "string"
+    },
+    "subsetor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Subsetor"
+    },
+    "descricao": {
+      "description": "O que a empresa faz, em uma ou duas frases",
+      "title": "Descricao",
+      "type": "string"
+    },
+    "missao": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Missao"
+    },
+    "produtos_servicos": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Produtos Servicos",
+      "type": "array"
+    },
+    "publicos_atendidos": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Publicos Atendidos",
+      "type": "array"
+    },
+    "localizacao": {
+      "$ref": "#/$defs/Localizacao"
+    },
+    "porte_indicios": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Só o que o site afirma, ex.: '12 unidades em SP'",
+      "title": "Porte Indicios"
+    },
+    "mencoes_inclusao": {
+      "items": {
+        "$ref": "#/$defs/Mencao"
+      },
+      "title": "Mencoes Inclusao",
+      "type": "array"
+    },
+    "sinais": {
+      "items": {
+        "$ref": "#/$defs/Sinal"
+      },
+      "title": "Sinais",
+      "type": "array"
+    },
+    "lacunas": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Lacunas",
+      "type": "array"
+    },
+    "resumo_5_linhas": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Resumo 5 Linhas",
+      "type": "array"
+    },
+    "raciocinio_resumido": {
+      "title": "Raciocinio Resumido",
+      "type": "string"
+    }
+  },
+  "required": [
+    "nome_oficial",
+    "setor",
+    "subsetor",
+    "descricao",
+    "missao",
+    "produtos_servicos",
+    "publicos_atendidos",
+    "localizacao",
+    "porte_indicios",
+    "mencoes_inclusao",
+    "sinais",
+    "lacunas",
+    "resumo_5_linhas",
+    "raciocinio_resumido"
+  ],
+  "title": "Dossie",
+  "type": "object"
+}
