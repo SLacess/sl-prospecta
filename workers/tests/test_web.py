@@ -96,6 +96,16 @@ def test_redirecionamento_para_www_e_seguido():
     assert asyncio.run(_ler(_leitor(site), HOME)).url == f"https://www.{DOMINIO}/"
 
 
+def test_cookie_com_acento_no_redirecionamento_nao_derruba_a_leitura():
+    # Caso real (lojasrenner.com.br): Set-Cookie com valor em latin-1 junto do redirecionamento para o www
+    site = dict(SITE_PADRAO)
+    cookie = "cidade=São Paulo; Path=/".encode("latin-1")
+    site[HOME] = (301, {"location": f"https://www.{DOMINIO}/", "set-cookie": cookie}, "")
+    site[f"https://www.{DOMINIO}/robots.txt"] = (404, {}, "")
+    site[f"https://www.{DOMINIO}/"] = (200, {"content-type": "text/html", "set-cookie": cookie}, HOME_HTML)
+    assert asyncio.run(_ler(_leitor(site), HOME)).url == f"https://www.{DOMINIO}/"
+
+
 def test_endereco_interno_e_recusado():
     async def privado(host):
         return ["10.0.0.5"]

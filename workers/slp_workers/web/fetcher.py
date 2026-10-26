@@ -3,6 +3,7 @@
 import re
 import unicodedata
 from dataclasses import dataclass, field
+from http.cookiejar import DefaultCookiePolicy
 from urllib.parse import urljoin, urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
 
@@ -185,6 +186,9 @@ class LeitorSite:
             follow_redirects=False,
             transport=transport,
         )
+        # Sem cookies: a leitura não precisa deles e cookie com acento quebra o httpx ao redirecionar.
+        # A política vai no jar do próprio cliente (o httpx copia o que recebe no construtor).
+        self._client.cookies.jar.set_policy(DefaultCookiePolicy(allowed_domains=[]))
         self.requisicoes = 0
 
     async def __aenter__(self) -> "LeitorSite":
