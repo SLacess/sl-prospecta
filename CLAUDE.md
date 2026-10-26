@@ -58,6 +58,9 @@ cd apps/web && npm install && npm run dev
 - Estados do prospect seguem exatamente a máquina de estados do §7.1. Não crie estados novos sem emendar a Constituição.
 
 ## Fase atual
-**Fase 1 — Auditor + Pesquisador** (§19): entrada por nome/URL, fila, dossiê, auditoria completa, mini-relatório PDF.
-Critério para avançar: 20 auditorias revisadas por Marcos com ≥ 90% de achados corretos.
-Próxima: **Fase 2 — Qualificação + Decisores + Lote**. Não antecipe funcionalidades de fases futuras sem pedido explícito.
+**Fase 2 — Qualificação + Decisores + Lote** (§19): Qualificador (score com pesos da `config`, faixas quente/morno/frio),
+Mapeador de decisores (Apollo, até 3 contatos, tabela `contatos`), upload de planilha `.xlsx`/`.csv` com deduplicação
+e CRM Kanban com os estados do §7.1.
+Critério para avançar: uma planilha de 100 empresas processada sem erro, com score e decisores coerentes na avaliação de Marcos.
+Fase 1 concluída em 26/10/2026 (20 auditorias, 4 setores, 92,2% de acertos — ver ADR 0007).
+Próxima: **Fase 3 — Abordagem com aprovação humana**. Não antecipe funcionalidades de fases futuras sem pedido explícito.

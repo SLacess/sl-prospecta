@@ -39,3 +39,22 @@ nenhum texto prometendo conformidade total. A medição precisa ser registrada, 
   linha "Fase atual" do CLAUDE.md muda para a Fase 2.
 - Achados marcados como incorretos ou parciais, com o motivo, são a base para recalibrar a fórmula da nota e
   as regras do Auditor.
+
+## Resultado (26/10/2026)
+Critério atingido: 20 auditorias revisadas por Marcos, de 4 setores, com **92,2%** de acertos e nenhuma promessa
+de conformidade total.
+
+| Item | Correto | Parcial | Incorreto |
+|---|---|---|---|
+| Achados para leigos | 48 | 6 | 6 |
+| Problemas técnicos | 61 | 1 | 0 |
+| Checagem de honestidade | 20 | 0 | 0 |
+
+Os achados para leigos, que vão para o cliente, ficaram em **85%** (parcial vale meio). Os erros se concentram em:
+- **Teste de teclado** (5 de 12): modal ou banner de cookies que prende o foco de propósito e devolve com
+  "Fechar" foi lido como armadilha; "sem indicador de foco" generalizou poucos elementos para o site inteiro.
+- **Local do problema** (2): o problema existe, mas numa página ou subdomínio diferente do que o texto diz.
+- **Falso positivo do axe ou conteúdo que mudou** (5): nome de botão ou link, contraste e estrutura de lista que
+  não se confirmaram na conferência manual.
+
+Recalibrar essas regras do Auditor fica registrado como pendência antes de a abordagem usar os achados (Fase 3).
