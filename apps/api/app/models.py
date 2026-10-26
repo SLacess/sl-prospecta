@@ -2,6 +2,7 @@
 
 Fase 0: usuários, empresas, eventos, ações de agentes, supressão, config.
 Fase 1: dossiês e auditorias (migração 0002); revisões dos achados (0003).
+Fase 2: qualificações (0004).
 Tabelas das fases seguintes (contatos, mensagens...) entram em migrações próprias.
 """
 
@@ -187,6 +188,27 @@ class RevisaoAchado(Base):
     atualizado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class Qualificacao(Base):
+    """Saída do Qualificador (CONSTITUICAO §7.3, Etapa 3). Uma linha por cálculo; a mais recente vale."""
+
+    __tablename__ = "qualificacoes"
+    __table_args__ = (
+        CheckConstraint("score >= 0 AND score <= 100", name="ck_qualificacoes_score_0_100"),
+        CheckConstraint("faixa IN ('quente', 'morno', 'frio')", name="ck_qualificacoes_faixa"),
+        Index("ix_qualificacoes_empresa_criado", "empresa_id", "criado_em"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
+    empresa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("empresas.id", ondelete="CASCADE"))
+    auditoria_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("auditorias.id", ondelete="SET NULL"))
+    score: Mapped[int] = mapped_column(Integer)
+    faixa: Mapped[str] = mapped_column(String(10))  # quente | morno | frio
+    componentes_json: Mapped[list] = mapped_column(JSON, default=list)
+    pesos_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    regra_versao: Mapped[str] = mapped_column(String(20))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Supressao(Base):

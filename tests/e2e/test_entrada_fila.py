@@ -207,12 +207,15 @@ def test_auditoria_pronta_vira_analise_e_qualificando(client, headers):
     _rodar_worker()
 
     detalhe = _detalhe(client, headers, empresa_id)
+    # Sem dossiê nem setor, o score fica frio (17): a empresa continua em QUALIFICANDO (Fase 2)
     assert detalhe["estado"] == "QUALIFICANDO"
     assert detalhe["auditoria"]["nota"] == 88  # 100 - 12 (imagem sem texto alternativo)
     assert detalhe["auditoria"]["analise"]["top3_para_leigos"][0]["titulo"] == "Imagens sem descrição"
     assert detalhe["auditoria"]["analise"]["exige_ajuste_no_codigo"] == ["imagens sem texto alternativo"]
-    # Fim da análise: o mini-relatório em PDF é gerado (Tarefa 5)
-    assert [e["tipo"] for e in detalhe["eventos"]][-2:] == ["analise_pronta", "relatorio_pronto"]
+    # Fim da análise: o Qualificador dá o score e o mini-relatório em PDF é gerado
+    assert [e["tipo"] for e in detalhe["eventos"]][-3:] == ["analise_pronta", "qualificado", "relatorio_pronto"]
+    with SessionLocal() as db:
+        assert db.get(Empresa, uuid.UUID(empresa_id)).score == 17
 
 
 def test_disjuntor_de_custo_pausa_o_job_no_worker(client, headers, monkeypatch):

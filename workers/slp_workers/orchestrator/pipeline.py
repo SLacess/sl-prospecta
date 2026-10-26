@@ -1,8 +1,8 @@
 """Orquestrador do pipeline do prospect (CONSTITUICAO §5 e §7).
 
 Fase 1: NOVO → PESQUISANDO (o Pesquisador monta o dossiê) → AUDITANDO (o Auditor técnico roda no
-serviço worker-audit, fila própria; depois o Auditor com IA dá a nota e explica os achados) → QUALIFICANDO,
-onde a empresa espera o Qualificador da Fase 2.
+serviço worker-audit, fila própria; depois o Auditor com IA dá a nota e explica os achados) → QUALIFICANDO.
+Fase 2: o Qualificador (regra fixa, sem IA) dá o score; quente e morno seguem para MAPEANDO_DECISORES.
 Os agentes devolvem dados validados; só este módulo grava no banco e na linha do tempo.
 """
 
@@ -21,6 +21,7 @@ from sqlalchemy import Engine, select, update
 from sqlalchemy.exc import IntegrityError
 
 from slp_workers.agents import auditor, researcher
+from slp_workers.agents.qualificador import ConfigInvalida
 from slp_workers.audit.artefatos import Armazenamento
 from slp_workers.db import (
     auditorias,
@@ -28,12 +29,14 @@ from slp_workers.db import (
     empresas,
     eventos,
     proxima_versao_dossie,
+    qualificacoes,
     registrar_acao,
     registrar_evento,
 )
 from slp_workers.filas import FILA_AUDITORIA, JOB_AUDITAR_EMPRESA, job_id_auditoria
 from slp_workers.llm import ClienteIA, Consumo, ErroIA
 from slp_workers.orchestrator.budget import requires_ai_budget
+from slp_workers.orchestrator.qualificacao import qualificar_e_gravar
 from slp_workers.orchestrator.relatorio import gerar_com_evento
 from slp_workers.settings import WorkerConfig, get_config
 from slp_workers.web.fetcher import LeitorSite, LeituraBloqueada, Pagina, escolher_paginas
@@ -376,9 +379,31 @@ class Pesquisa:
             prints_analisados=len(prints),
             custo_brl=str(self.gasto.custo_brl),
         )
+        await self._qualificar()
         # Mini-relatório (§8.3), sem IA: uma falha aqui fica na linha do tempo e não desfaz a análise
         await gerar_com_evento(self.deps.engine, self.deps.armazenamento, self.empresa_id)
         return "analise_pronta"
+
+    def _tem_qualificacao(self) -> bool:
+        with self.deps.engine.connect() as conn:
+            return (
+                conn.scalar(
+                    select(qualificacoes.c.id).where(qualificacoes.c.empresa_id == self.empresa_id).limit(1)
+                )
+                is not None
+            )
+
+    async def _qualificar(self) -> str:
+        """Qualificador (§7.3, Etapa 3), sem IA. Uma configuração inválida fica na linha do tempo."""
+        try:
+            resultado = await asyncio.to_thread(qualificar_e_gravar, self.deps.engine, self.empresa_id)
+        except ConfigInvalida as exc:
+            await self.evento(
+                "qualificacao_falhou",
+                f"Não foi possível qualificar: {exc}. Corrija em Configurações → Score.",
+            )
+            return "qualificacao_falhou"
+        return "qualificado" if resultado is not None else "sem_auditoria"
 
     async def _encaminhar_auditoria(self, estado: str) -> str:
         """Dossiê pronto: PESQUISANDO → AUDITANDO e a empresa entra na fila do worker-audit."""
@@ -407,6 +432,11 @@ class Pesquisa:
             if auditoria_bruta.nota is None:
                 return await self._analisar_auditoria(empresa, auditoria_bruta)
             return "ja_analisada"
+        elif empresa.estado == QUALIFICANDO:
+            # Analisada antes do Qualificador existir (ou com a config inválida na hora): qualifica agora
+            if await asyncio.to_thread(self._tem_qualificacao):
+                return "ja_qualificada"
+            return await self._qualificar()
         elif empresa.estado != PESQUISANDO:
             return "ignorado"
         if await asyncio.to_thread(self._tem_dossie):

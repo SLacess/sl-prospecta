@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.queue import fechar_fila
-from app.routers import auth, ficha, governanca, health, prospeccao, revisao
+from app.routers import auth, ficha, governanca, health, prospeccao, qualificacao, revisao
 
 settings = get_settings()
 
@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="SL Prospecta API",
     description="Departamento de SDR autônomo da Sinal Link Acessibilidade.",
-    version="0.2.0",
+    version="0.3.0",
     docs_url=None if settings.is_production else "/docs",
     redoc_url=None,
     lifespan=lifespan,
@@ -41,8 +41,9 @@ app.include_router(prospeccao.router)
 app.include_router(governanca.router)
 app.include_router(ficha.router)
 app.include_router(revisao.router)
+app.include_router(qualificacao.router)
 
 
 @app.get("/", include_in_schema=False)
 def root() -> dict[str, str]:
-    return {"servico": "sl-prospecta-api", "fase": "1"}
+    return {"servico": "sl-prospecta-api", "fase": "2"}

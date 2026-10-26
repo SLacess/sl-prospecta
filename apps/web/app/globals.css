@@ -90,7 +90,7 @@ p.lead { color: var(--text-muted); margin-top: 0; }
 label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
 .hint { color: var(--text-muted); font-size: 0.92rem; margin: 0.25rem 0 0; }
 
-input[type="text"], input[type="email"], input[type="password"], input[type="file"] {
+input[type="text"], input[type="email"], input[type="password"], input[type="file"], input[type="number"] {
   width: 100%;
   font: inherit;
   padding: 0.7rem 0.8rem;
@@ -299,3 +299,16 @@ button.secundario { background: var(--surface); color: var(--primary); }
 .checagem-honestidade label { display: inline; margin: 0; }
 .situacao { margin-top: 1rem; padding: 0.75rem 1rem; border-left: 4px solid var(--border); background: var(--bg); }
 .situacao.atingido { border-left-color: var(--primary); }
+
+/* Qualificação: a faixa está sempre escrita; a borda colorida só reforça (§2.8) */
+.score-faixa { margin: 0.5rem 0 0; padding: 0.75rem 1rem; border-left: 6px solid var(--border); background: var(--bg); }
+.score-faixa strong { font-size: 1.2rem; }
+.score-faixa.faixa-quente { border-left-color: var(--focus); }
+.score-faixa.faixa-morno { border-left-color: var(--primary); }
+.tabela-rolavel tbody th { text-align: left; font-weight: 600; }
+
+/* Configurações do score */
+.grade-pesos { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
+.grade-pesos input { max-width: 8rem; }
+.soma-pesos { margin: 1rem 0 0; font-weight: 600; }
+.erro-campo { color: var(--danger); font-size: 0.92rem; margin: 0.25rem 0 0; }

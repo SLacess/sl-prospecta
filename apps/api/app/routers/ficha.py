@@ -1,5 +1,5 @@
-"""Ficha do Prospect (CONSTITUICAO §12.1, tela 3): dossiê, auditoria, evidências, linha do tempo e o
-mini-relatório (§8.3). Tudo exige login; prints e relatórios saem do MinIO só por estas rotas."""
+"""Ficha do Prospect (CONSTITUICAO §12.1, tela 3): dossiê, auditoria, evidências, qualificação, linha do tempo
+e o mini-relatório (§8.3). Tudo exige login; prints e relatórios saem do MinIO só por estas rotas."""
 
 import uuid
 from datetime import datetime
@@ -23,6 +23,7 @@ from app.routers.prospeccao import (
     _ultima_auditoria,
     _ultimo_dossie,
 )
+from app.routers.qualificacao import QualificacaoOut, ultima_qualificacao
 
 router = APIRouter(tags=["ficha do prospect"])
 
@@ -90,6 +91,7 @@ class FichaOut(BaseModel):
     dossie: DossieCompletoOut | None
     auditoria: AuditoriaResumoOut | None
     evidencias: list[EvidenciaOut]
+    qualificacao: QualificacaoOut | None
     relatorio_disponivel: bool
     eventos: list[EventoOut]
 
@@ -186,6 +188,7 @@ def ficha(
         dossie=_dossie(db, empresa_id),
         auditoria=_resumo_auditoria(auditoria) if auditoria else None,
         evidencias=_evidencias(auditoria, empresa.dominio),
+        qualificacao=ultima_qualificacao(db, empresa_id),
         relatorio_disponivel=analisada
         and armazenamento.existe(chave_relatorio(empresa_id, auditoria.id, "pdf")),
         eventos=[

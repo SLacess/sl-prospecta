@@ -154,7 +154,7 @@ def test_empresa_ja_auditada_e_analisada_nao_volta_para_a_fila(engine):
 
 
 def test_empresa_fora_do_fluxo_da_pesquisa_e_ignorada(engine):
-    eid = inserir_empresa(engine, estado="QUALIFICANDO")
+    eid = inserir_empresa(engine, estado="MAPEANDO_DECISORES")
     assert _rodar(montar_ctx(engine, IAFalsa()), eid) == "ignorado"
     assert _tipos(engine, eid) == []
 
