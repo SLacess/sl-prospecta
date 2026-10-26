@@ -219,12 +219,13 @@ class LeitorSite:
                     corpo.extend(parte)
                     if len(corpo) > self._max_bytes:
                         break
-                # O corpo já vem descompactado: tira os cabeçalhos que fariam o httpx decodificar de novo
-                cabecalhos = {
-                    k: v
-                    for k, v in resposta.headers.items()
-                    if k.lower() not in ("content-encoding", "content-length", "transfer-encoding")
-                }
+                # O corpo já vem descompactado: tira os cabeçalhos que fariam o httpx decodificar de novo.
+                # Usa os bytes crus: cabeçalho com acento (ex.: "São Paulo") quebraria ao virar ASCII de novo
+                cabecalhos = [
+                    (k, v)
+                    for k, v in resposta.headers.raw
+                    if k.lower() not in (b"content-encoding", b"content-length", b"transfer-encoding")
+                ]
                 return httpx.Response(
                     resposta.status_code,
                     headers=cabecalhos,

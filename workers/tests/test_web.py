@@ -113,6 +113,13 @@ def test_pagina_grande_e_cortada():
     assert len(pagina.texto) <= 1000
 
 
+def test_cabecalho_com_acento_nao_derruba_a_leitura():
+    # Servidores reais mandam cabeçalhos em latin-1 (ex.: robots.txt com "Localização: São Paulo")
+    site = dict(SITE_PADRAO)
+    site[HOME] = (200, {"content-type": "text/html", "x-local": "São Paulo".encode("latin-1")}, HOME_HTML)
+    assert asyncio.run(_ler(_leitor(site), HOME)).titulo
+
+
 def test_conteudo_que_nao_e_pagina_e_recusado():
     site = dict(SITE_PADRAO)
     site[HOME] = (200, {"content-type": "application/pdf"}, "%PDF")

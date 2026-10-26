@@ -18,6 +18,7 @@ from sqlalchemy import Engine, select
 from slp_workers.audit.artefatos import Armazenamento
 from slp_workers.audit.engine import Auditor, ResultadoAuditoria
 from slp_workers.db import auditorias, empresas, registrar_evento
+from slp_workers.filas import FILA_PRINCIPAL
 from slp_workers.settings import WorkerConfig, get_config
 from slp_workers.web.fetcher import LeituraBloqueada
 from slp_workers.web.ratelimit import Limitador
@@ -29,11 +30,17 @@ AUDITANDO = "AUDITANDO"
 
 
 def _enfileirador_principal(redis: Any) -> Callable[[uuid.UUID], Awaitable[bool]]:
-    """A análise com IA roda no worker principal (fila padrão), pelo mesmo job do orquestrador."""
+    """A análise com IA roda no worker principal, pelo mesmo job do orquestrador.
+
+    A fila precisa ser explícita: o `redis` do contexto do worker-audit usa a fila de auditoria como padrão,
+    e o job iria parar num worker que não conhece `processar_empresa`."""
 
     async def enfileirar(empresa_id: uuid.UUID) -> bool:
         job = await redis.enqueue_job(
-            "processar_empresa", str(empresa_id), _job_id=f"processar_empresa:{empresa_id}"
+            "processar_empresa",
+            str(empresa_id),
+            _job_id=f"processar_empresa:{empresa_id}",
+            _queue_name=FILA_PRINCIPAL,
         )
         return job is not None
 

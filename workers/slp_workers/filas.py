@@ -1,5 +1,6 @@
 """Nomes das filas e dos jobs (arq). A auditoria tem fila própria, consumida só pelo worker-audit."""
 
+FILA_PRINCIPAL = "arq:queue"  # fila padrão do arq, consumida pelo worker principal
 FILA_AUDITORIA = "arq:queue:auditoria"
 JOB_AUDITAR_EMPRESA = "auditar_empresa"
 

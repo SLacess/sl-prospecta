@@ -384,3 +384,26 @@ def test_auditoria_tecnica_pronta_chama_a_analise(engine):
     }
     assert asyncio.run(auditar_empresa(ctx, str(eid))) == "auditoria_pronta"
     assert chamados == [eid]
+
+
+def test_analise_vai_para_a_fila_do_worker_principal():
+    # O redis do worker-audit tem a fila de auditoria como padrão; a análise precisa ir para a fila principal
+    from arq.constants import default_queue_name
+
+    from slp_workers.filas import FILA_PRINCIPAL
+    from slp_workers.orchestrator.auditoria import _enfileirador_principal
+
+    assert FILA_PRINCIPAL == default_queue_name
+    chamadas = []
+
+    class RedisFalso:
+        async def enqueue_job(self, funcao, *args, **kwargs):
+            chamadas.append((funcao, args, kwargs))
+            return object()
+
+    eid = uuid.uuid4()
+    assert asyncio.run(_enfileirador_principal(RedisFalso())(eid)) is True
+    funcao, args, kwargs = chamadas[0]
+    assert funcao == "processar_empresa" and args == (str(eid),)
+    assert kwargs["_queue_name"] == FILA_PRINCIPAL
+    assert kwargs["_job_id"] == f"processar_empresa:{eid}"
