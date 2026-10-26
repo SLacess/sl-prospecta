@@ -1,0 +1,97 @@
+{
+  "$defs": {
+    "Componente": {
+      "properties": {
+        "chave": {
+          "title": "Chave",
+          "type": "string"
+        },
+        "rotulo": {
+          "title": "Rotulo",
+          "type": "string"
+        },
+        "valor": {
+          "title": "Valor",
+          "type": "integer"
+        },
+        "peso": {
+          "title": "Peso",
+          "type": "number"
+        },
+        "contribuicao": {
+          "title": "Contribuicao",
+          "type": "number"
+        },
+        "justificativa": {
+          "title": "Justificativa",
+          "type": "string"
+        }
+      },
+      "required": [
+        "chave",
+        "rotulo",
+        "valor",
+        "peso",
+        "contribuicao",
+        "justificativa"
+      ],
+      "title": "Componente",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "score": {
+      "title": "Score",
+      "type": "integer"
+    },
+    "faixa": {
+      "enum": [
+        "quente",
+        "morno",
+        "frio"
+      ],
+      "title": "Faixa",
+      "type": "string"
+    },
+    "componentes": {
+      "items": {
+        "$ref": "#/$defs/Componente"
+      },
+      "title": "Componentes",
+      "type": "array"
+    },
+    "pesos": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Pesos",
+      "type": "object"
+    },
+    "faixas": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Faixas",
+      "type": "object"
+    },
+    "regra_versao": {
+      "default": "regra-v1",
+      "title": "Regra Versao",
+      "type": "string"
+    },
+    "raciocinio_resumido": {
+      "title": "Raciocinio Resumido",
+      "type": "string"
+    }
+  },
+  "required": [
+    "score",
+    "faixa",
+    "componentes",
+    "pesos",
+    "faixas",
+    "raciocinio_resumido"
+  ],
+  "title": "Qualificacao",
+  "type": "object"
+}

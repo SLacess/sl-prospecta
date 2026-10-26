@@ -1,4 +1,4 @@
-"""Auditor com IA (Tarefa 4): regras fixas, validação da saída do modelo e orquestração até QUALIFICANDO."""
+"""Auditor com IA (Tarefa 4): regras fixas, validação da saída do modelo e orquestração até a qualificação."""
 
 import asyncio
 import json
@@ -311,7 +311,11 @@ def test_analise_grava_o_json_do_8_2_e_passa_para_qualificando(engine, monkeypat
     with engine.connect() as conn:
         a = conn.execute(select(auditorias).where(auditorias.c.id == aid)).one()
         estado = conn.scalar(select(empresas.c.estado).where(empresas.c.id == eid))
-        acao = conn.execute(select(acoes_agentes).where(acoes_agentes.c.empresa_id == eid)).one()
+        acao = conn.execute(
+            select(acoes_agentes).where(
+                acoes_agentes.c.empresa_id == eid, acoes_agentes.c.agente == "auditor"
+            )
+        ).one()
         ultimo = conn.execute(
             select(eventos.c.tipo, eventos.c.dados_json).where(
                 eventos.c.empresa_id == eid, eventos.c.tipo == "analise_pronta"
@@ -323,7 +327,8 @@ def test_analise_grava_o_json_do_8_2_e_passa_para_qualificando(engine, monkeypat
                 select(eventos.c.tipo).where(eventos.c.empresa_id == eid).order_by(eventos.c.ocorrido_em)
             )
         ]
-    assert estado == "QUALIFICANDO"
+    # Nota 51, saúde, sem dossiê: score 48 (morno) → segue para o mapeamento de decisores (Fase 2)
+    assert estado == "MAPEANDO_DECISORES"
     assert a.nota == 100 - (12 + 12 + 12 + 7 + 3 + 3)
     resultado = ResultadoAuditoriaIA.model_validate(a.achados_json)
     assert [x.problema for x in resultado.top3_para_leigos] == ["label", "image-alt"]
@@ -336,8 +341,8 @@ def test_analise_grava_o_json_do_8_2_e_passa_para_qualificando(engine, monkeypat
     assert ultimo.tipo == "analise_pronta"
     assert f"nota {a.nota} de 100" in ultimo.dados_json["mensagem"]
     assert ultimo.dados_json["prints_analisados"] == 2
-    # Fim da análise gera o mini-relatório (Tarefa 5)
-    assert tipos[-2:] == ["analise_pronta", "relatorio_pronto"]
+    # Fim da análise: Qualificador (Fase 2) e depois o mini-relatório (Tarefa 5)
+    assert tipos[-3:] == ["analise_pronta", "qualificado", "relatorio_pronto"]
     assert any(k.startswith(f"relatorios/{eid}/") and k.endswith(".pdf") for k in armazenamento.arquivos)
 
 

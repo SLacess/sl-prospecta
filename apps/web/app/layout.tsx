@@ -24,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ul>
               <li><a href="/">Prospecção</a></li>
               <li><a href="/revisao">Revisão da Fase 1</a></li>
+              <li><a href="/configuracoes">Configurações</a></li>
               <li><NavSessao /></li>
             </ul>
           </nav>
@@ -32,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <footer className="hint" style={{ textAlign: "center", padding: "2rem 1rem" }}>
-          SL Prospecta v0.2 · Fase 1 — Auditor + Pesquisador
+          SL Prospecta v0.3 · Fase 2 — Qualificação, decisores e lote
         </footer>
       </body>
     </html>

@@ -44,6 +44,8 @@ empresas = Table(
     Column("setor", String(80)),
     Column("cidade", String(120)),
     Column("uf", String(2)),
+    Column("porte", String(40)),
+    Column("score", Integer),
     Column("estado", Enum(*ESTADOS, name="estado_prospect")),
 )
 
@@ -98,6 +100,26 @@ acoes_agentes = Table(
 )
 
 
+qualificacoes = Table(
+    "qualificacoes", metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("empresa_id", Uuid, ForeignKey("empresas.id")),
+    Column("auditoria_id", Uuid, ForeignKey("auditorias.id")),
+    Column("score", Integer),
+    Column("faixa", String(10)),
+    Column("componentes_json", JSON),
+    Column("pesos_json", JSON),
+    Column("regra_versao", String(20)),
+    Column("criado_em", DateTime(timezone=True)),
+)
+
+config = Table(
+    "config", metadata,
+    Column("chave", String(80), primary_key=True),
+    Column("valor_json", JSON),
+)
+
+
 def make_engine(database_url: str) -> Engine:
     return create_engine(database_url, pool_pre_ping=True)
 
@@ -142,6 +164,12 @@ def registrar_acao(
                 tokens_out=tokens_out, custo=custo_brl, duracao_ms=duracao_ms, criado_em=datetime.now(UTC),
             )
         )
+
+
+def ler_config(conn, *chaves: str) -> dict[str, dict]:
+    """Valores da tabela `config` (ICP, pesos, faixas...). Chave ausente fica de fora e vale o padrão."""
+    linhas = conn.execute(select(config.c.chave, config.c.valor_json).where(config.c.chave.in_(chaves)))
+    return {chave: valor for chave, valor in linhas if isinstance(valor, dict)}
 
 
 def proxima_versao_dossie(conn, empresa_id: uuid.UUID) -> int:

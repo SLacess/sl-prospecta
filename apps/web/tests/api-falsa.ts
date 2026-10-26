@@ -231,8 +231,33 @@ export const FICHA = {
       alt: "Print da página /.",
     },
   ],
+  qualificacao: {
+    score: 61,
+    faixa: "morno",
+    rotulo_faixa: "Morno",
+    proximo_passo: "abordagem padrão",
+    componentes: [
+      { chave: "fit_icp", rotulo: "Aderência ao perfil de cliente (ICP)", valor: 90, peso: 0.3, contribuicao: 27,
+        justificativa: "Setor prioritário (saúde); atua no Brasil (SP); porte ainda não conhecido, contado como neutro." },
+      { chave: "intencao", rotulo: "Sinais de interesse", valor: 20, peso: 0.25, contribuicao: 5,
+        justificativa: "Encontrado: 1× outro sinal, 1 menção(ões) a inclusão no site." },
+      { chave: "gravidade_barreiras", rotulo: "Gravidade das barreiras", valor: 42, peso: 0.2, contribuicao: 8.4,
+        justificativa: "Nota de acessibilidade 58 de 100: quanto mais barreiras, maior a necessidade." },
+      { chave: "pressao_regulatoria", rotulo: "Pressão regulatória do setor", valor: 75, peso: 0.15, contribuicao: 11.25,
+        justificativa: "Setor de saúde: a LBI (art. 63) vale para todos os sites; o setor tem exigências próprias." },
+      { chave: "acessibilidade_decisor", rotulo: "Acesso ao decisor", valor: 0, peso: 0.1, contribuicao: 0,
+        justificativa: "Ainda sem contatos mapeados; o score é recalculado quando os decisores forem encontrados." },
+    ],
+    regra_versao: "regra-v1",
+    criado_em: "2026-10-26T15:00:00Z",
+  } as unknown,
   relatorio_disponivel: true,
   eventos: EVENTOS_FINAIS,
+};
+
+export const CONFIG_SCORE = {
+  pesos: { fit_icp: 0.3, intencao: 0.25, gravidade_barreiras: 0.2, pressao_regulatoria: 0.15, acessibilidade_decisor: 0.1 },
+  faixas: { quente: 70, morno: 45 },
 };
 
 export const REVISAO = {
@@ -275,6 +300,7 @@ interface Opcoes {
   ficha?: typeof FICHA;
   papel?: "admin" | "vendedor" | "leitura";
   respostaRevisao?: { status: number; corpo: unknown };
+  respostaConfigScore?: { status: number; corpo: unknown };
 }
 
 function json(route: Route, status: number, corpo: unknown) {
@@ -289,6 +315,7 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
   const posts: unknown[] = [];
   const revisoes: unknown[] = [];
   const confirmacoes: unknown[] = [];
+  const configs: unknown[] = [];
   let andamento = opcoes.andamento ?? ANDAMENTO_PADRAO;
   let consulta = 0;
 
@@ -343,6 +370,14 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
       return json(route, 200, { id: "u1", nome: "Marcos", email: "m@x.com", papel: opcoes.papel ?? "vendedor" });
     }
     if (url.pathname === "/revisao/fase1") return json(route, 200, PLACAR);
+    if (url.pathname === "/config/score") {
+      if (req.method() === "PUT") {
+        configs.push(req.postDataJSON());
+        const r = opcoes.respostaConfigScore ?? { status: 200, corpo: req.postDataJSON() };
+        return json(route, r.status, r.corpo);
+      }
+      return json(route, 200, CONFIG_SCORE);
+    }
     if (url.pathname === `/auditorias/${AUDITORIA.id}/revisao`) {
       if (req.method() === "PUT") {
         revisoes.push(req.postDataJSON());
@@ -373,5 +408,5 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
     return json(route, 404, { detail: "não simulado" });
   });
 
-  return { posts, confirmacoes, revisoes };
+  return { posts, confirmacoes, revisoes, configs };
 }

@@ -16,6 +16,7 @@ import {
   type UsuarioAtual,
 } from "@/lib/api";
 
+import { QualificacaoDaEmpresa } from "./qualificacao";
 import { RevisaoAuditoria } from "./revisao";
 
 const TEMA: Record<string, string> = {
@@ -86,8 +87,8 @@ function PrintDaEvidencia({ empresaId, evidencia }: { empresaId: string; evidenc
 }
 
 /**
- * Ficha do Prospect (CONSTITUICAO §12.1, tela 3): dossiê, auditoria com evidências, linha do tempo e o
- * mini-relatório (§8.3) para baixar. Botões de outras fases (assumir conversa, proposta) ainda não existem.
+ * Ficha do Prospect (CONSTITUICAO §12.1, tela 3): qualificação, dossiê, auditoria com evidências, linha do
+ * tempo e o mini-relatório (§8.3) para baixar. Botões de outras fases (assumir conversa, proposta) ainda não existem.
  */
 export default function FichaDoProspect() {
   const { id } = useParams<{ id: string }>();
@@ -182,6 +183,8 @@ export default function FichaDoProspect() {
           </div>
         )}
       </dl>
+
+      {ficha.qualificacao && <QualificacaoDaEmpresa qualificacao={ficha.qualificacao} />}
 
       <section className="card acoes-ficha" aria-labelledby="titulo-relatorio" style={{ marginTop: "1.5rem" }}>
         <h2 id="titulo-relatorio" style={{ marginTop: 0 }}>Mini-relatório</h2>

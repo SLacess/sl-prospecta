@@ -222,11 +222,58 @@ export interface Evidencia {
   alt: string;
 }
 
+// --- Qualificação (Fase 2, §7.3 Etapa 3) ---
+
+export type FaixaScore = "quente" | "morno" | "frio";
+
+export interface ComponenteScore {
+  chave: string;
+  rotulo: string;
+  valor: number;
+  peso: number;
+  contribuicao: number;
+  justificativa: string;
+}
+
+export interface Qualificacao {
+  score: number;
+  faixa: FaixaScore;
+  rotulo_faixa: string;
+  proximo_passo: string;
+  componentes: ComponenteScore[];
+  regra_versao: string;
+  criado_em: string;
+}
+
+export const COMPONENTES_SCORE = [
+  "fit_icp",
+  "intencao",
+  "gravidade_barreiras",
+  "pressao_regulatoria",
+  "acessibilidade_decisor",
+] as const;
+
+export type ChaveComponente = (typeof COMPONENTES_SCORE)[number];
+
+export const ROTULO_COMPONENTE: Record<ChaveComponente, string> = {
+  fit_icp: "Aderência ao perfil de cliente (ICP)",
+  intencao: "Sinais de interesse",
+  gravidade_barreiras: "Gravidade das barreiras",
+  pressao_regulatoria: "Pressão regulatória do setor",
+  acessibilidade_decisor: "Acesso ao decisor",
+};
+
+export interface ConfigScore {
+  pesos: Record<ChaveComponente, number>;
+  faixas: { quente: number; morno: number };
+}
+
 export interface Ficha {
   empresa: Empresa & { setor: string | null; cidade: string | null; uf: string | null };
   dossie: DossieCompleto | null;
   auditoria: AuditoriaResumo | null;
   evidencias: Evidencia[];
+  qualificacao: Qualificacao | null;
   relatorio_disponivel: boolean;
   eventos: Evento[];
 }
