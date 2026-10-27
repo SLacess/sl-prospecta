@@ -133,15 +133,16 @@ class ClienteAnthropic:
                 raise ErroIA("ANTHROPIC_API_KEY não configurada no worker") from exc
         return self._cliente
 
-    def _extras(self) -> dict[str, Any]:
-        # Recusa por classificador de segurança é refeita no modelo indicado pela própria API
-        if self._config.ai_refusal_fallback:
+    def _extras(self, modelo: str) -> dict[str, Any]:
+        # Recusa por classificador de segurança é refeita no modelo indicado pela própria API.
+        # O Haiku 5.5 não tem fallback no servidor: a recusa volta como erro do job.
+        if self._config.ai_refusal_fallback and not modelo.startswith("claude-haiku"):
             return {"betas": [BETA_FALLBACK], "fallbacks": "default"}
         return {}
 
     async def _chamar(self, metodo, **kwargs):
         try:
-            return await metodo(**kwargs, **self._extras())
+            return await metodo(**kwargs, **self._extras(kwargs["model"]))
         except (anthropic.RateLimitError, anthropic.InternalServerError, anthropic.APIConnectionError) as exc:
             raise ErroIA(f"Claude API indisponível ({type(exc).__name__})", transitorio=True) from exc
         except anthropic.APIStatusError as exc:

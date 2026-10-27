@@ -21,6 +21,7 @@ class Settings(BaseSettings):
 
     # Disjuntor de custo (CONSTITUICAO §13): teto diário de IA/dados em reais
     daily_ai_budget_brl: Decimal = Decimal("30")
+    apollo_daily_credit_cap: int = 60  # mesma variável do worker (disjuntor de créditos do Apollo)
     business_timezone: str = "America/Sao_Paulo"
 
     # Arquivos dos workers (prints e mini-relatórios) no MinIO — mesmo bucket privado

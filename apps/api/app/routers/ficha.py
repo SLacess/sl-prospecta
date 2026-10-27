@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.artefatos import Armazenamento, chave_de, chave_relatorio, get_armazenamento
 from app.db import get_db
 from app.deps import get_current_user
-from app.models import Auditoria, Empresa, Evento, Usuario
+from app.models import Auditoria, Contato, Empresa, Evento, Papel, Usuario
 from app.routers.prospeccao import (
     AuditoriaResumoOut,
     EmpresaOut,
@@ -86,12 +86,61 @@ class EvidenciaOut(BaseModel):
     alt: str
 
 
+ROTULO_EMAIL = {
+    "valido": "e-mail verificado",
+    "nao_verificado": "e-mail não verificado",
+    "sem_email": "sem e-mail",
+}
+
+
+class DecisorOut(BaseModel):
+    id: uuid.UUID
+    nome: str
+    cargo: str | None
+    area: str
+    email: str | None  # mascarado para o perfil leitura (coleta mínima, §15.1)
+    email_status: str
+    rotulo_email: str
+    linkedin_url: str | None
+    fonte: str
+    fonte_url: str | None
+
+
+def mascarar_email(email: str) -> str:
+    usuario, _, dominio = email.partition("@")
+    return f"{usuario[:1]}***@{dominio}"
+
+
+def _decisores(db: Session, empresa_id: uuid.UUID, papel: Papel) -> list[DecisorOut]:
+    linhas = db.scalars(
+        select(Contato)
+        .where(Contato.empresa_id == empresa_id, Contato.opt_out.is_(False))
+        .order_by(Contato.criado_em, Contato.nome)
+    ).all()
+    return [
+        DecisorOut(
+            id=c.id,
+            nome=c.nome,
+            cargo=c.cargo,
+            area=c.area,
+            email=(mascarar_email(c.email) if papel == Papel.leitura else c.email) if c.email else None,
+            email_status=c.email_status,
+            rotulo_email=ROTULO_EMAIL.get(c.email_status, c.email_status),
+            linkedin_url=c.linkedin_url,
+            fonte=c.fonte,
+            fonte_url=c.fonte_url,
+        )
+        for c in linhas
+    ]
+
+
 class FichaOut(BaseModel):
     empresa: EmpresaFichaOut
     dossie: DossieCompletoOut | None
     auditoria: AuditoriaResumoOut | None
     evidencias: list[EvidenciaOut]
     qualificacao: QualificacaoOut | None
+    decisores: list[DecisorOut]
     relatorio_disponivel: bool
     eventos: list[EventoOut]
 
@@ -175,7 +224,7 @@ def ficha(
     empresa_id: uuid.UUID,
     db: Session = Depends(get_db),
     armazenamento: Armazenamento = Depends(get_armazenamento),
-    _: Usuario = Depends(get_current_user),
+    user: Usuario = Depends(get_current_user),
 ) -> FichaOut:
     empresa = _empresa_ou_404(db, empresa_id)
     auditoria = _ultima_auditoria(db, empresa_id)
@@ -189,6 +238,7 @@ def ficha(
         auditoria=_resumo_auditoria(auditoria) if auditoria else None,
         evidencias=_evidencias(auditoria, empresa.dominio),
         qualificacao=ultima_qualificacao(db, empresa_id),
+        decisores=_decisores(db, empresa_id, user.papel),
         relatorio_disponivel=analisada
         and armazenamento.existe(chave_relatorio(empresa_id, auditoria.id, "pdf")),
         eventos=[

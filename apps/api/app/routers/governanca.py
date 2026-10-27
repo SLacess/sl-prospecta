@@ -1,4 +1,4 @@
-"""Estado dos disjuntores automáticos (CONSTITUICAO §13). Fase 1: só o de custo."""
+"""Estado dos disjuntores automáticos (CONSTITUICAO §13): custo de IA e créditos do Apollo."""
 
 from decimal import Decimal
 
@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.budget import verificar_disjuntor
+from app.budget import verificar_creditos_apollo, verificar_disjuntor
 from app.db import get_db
 from app.deps import get_current_user
 from app.models import Usuario
@@ -21,8 +21,16 @@ class DisjuntorCustoOut(BaseModel):
     mensagem: str
 
 
+class DisjuntorApolloOut(BaseModel):
+    creditos_hoje: int
+    teto: int
+    atingido: bool
+    mensagem: str
+
+
 class DisjuntoresOut(BaseModel):
     custo: DisjuntorCustoOut
+    apollo: DisjuntorApolloOut
 
 
 def _brl(valor: Decimal) -> str:
@@ -38,8 +46,18 @@ def disjuntores(db: Session = Depends(get_db), _: Usuario = Depends(get_current_
         if d.atingido
         else f"Custo de IA hoje: {_brl(d.custo_hoje_brl)} de {_brl(d.teto_brl)}."
     )
+    a = verificar_creditos_apollo(db)
+    mensagem_apollo = (
+        f"Teto diário de créditos do Apollo atingido ({a.creditos_hoje} de {a.teto}). "
+        "A busca de decisores recomeça amanhã."
+        if a.atingido
+        else f"Créditos do Apollo hoje: {a.creditos_hoje} de {a.teto}."
+    )
     return DisjuntoresOut(
         custo=DisjuntorCustoOut(
             custo_hoje_brl=d.custo_hoje_brl, teto_brl=d.teto_brl, atingido=d.atingido, mensagem=mensagem
-        )
+        ),
+        apollo=DisjuntorApolloOut(
+            creditos_hoje=a.creditos_hoje, teto=a.teto, atingido=a.atingido, mensagem=mensagem_apollo
+        ),
     )

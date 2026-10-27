@@ -190,6 +190,7 @@ export interface ProspeccaoResposta {
 
 export interface Disjuntores {
   custo: { custo_hoje_brl: string; teto_brl: string; atingido: boolean; mensagem: string };
+  apollo?: { creditos_hoje: number; teto: number; atingido: boolean; mensagem: string };
 }
 
 // --- Ficha do Prospect (Tarefa 5) ---
@@ -268,12 +269,28 @@ export interface ConfigScore {
   faixas: { quente: number; morno: number };
 }
 
+// --- Decisores (Fase 2, §7.3 Etapa 4) ---
+
+export interface Decisor {
+  id: string;
+  nome: string;
+  cargo: string | null;
+  area: string;
+  email: string | null;
+  email_status: "valido" | "nao_verificado" | "sem_email";
+  rotulo_email: string;
+  linkedin_url: string | null;
+  fonte: string;
+  fonte_url: string | null;
+}
+
 export interface Ficha {
   empresa: Empresa & { setor: string | null; cidade: string | null; uf: string | null };
   dossie: DossieCompleto | null;
   auditoria: AuditoriaResumo | null;
   evidencias: Evidencia[];
   qualificacao: Qualificacao | null;
+  decisores: Decisor[];
   relatorio_disponivel: boolean;
   eventos: Evento[];
 }

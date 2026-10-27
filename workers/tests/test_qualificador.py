@@ -208,7 +208,8 @@ def test_config_do_banco_e_usada(engine):
 def test_orquestrador_qualifica_quem_ja_estava_em_qualificando(engine):
     ctx = montar_ctx(engine, ia=None)
     quente = _analisada(engine)
-    assert asyncio.run(processar_empresa(ctx, str(quente))) == "qualificado"
+    # Quente vai para MAPEANDO_DECISORES e o Mapeador roda em seguida (sem chave do Apollo, só registra)
+    assert asyncio.run(processar_empresa(ctx, str(quente))) == "apollo_nao_configurado"
     assert _estado(engine, quente).estado == "MAPEANDO_DECISORES"
     # Frio fica em QUALIFICANDO; reenviar não recalcula nem duplica
     frio = _analisada(engine, setor="outro", nota=95)

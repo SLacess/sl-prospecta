@@ -1,0 +1,71 @@
+{
+  "$defs": {
+    "PessoaWeb": {
+      "properties": {
+        "nome": {
+          "title": "Nome",
+          "type": "string"
+        },
+        "cargo": {
+          "title": "Cargo",
+          "type": "string"
+        },
+        "area": {
+          "enum": [
+            "TI",
+            "RH",
+            "D&I",
+            "Marketing",
+            "ESG",
+            "Compliance"
+          ],
+          "title": "Area",
+          "type": "string"
+        },
+        "fonte_url": {
+          "title": "Fonte Url",
+          "type": "string"
+        },
+        "linkedin_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linkedin Url"
+        }
+      },
+      "required": [
+        "nome",
+        "cargo",
+        "area",
+        "fonte_url"
+      ],
+      "title": "PessoaWeb",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "pessoas": {
+      "items": {
+        "$ref": "#/$defs/PessoaWeb"
+      },
+      "title": "Pessoas",
+      "type": "array"
+    },
+    "raciocinio_resumido": {
+      "title": "Raciocinio Resumido",
+      "type": "string"
+    }
+  },
+  "required": [
+    "pessoas",
+    "raciocinio_resumido"
+  ],
+  "title": "BuscaWebDecisores",
+  "type": "object"
+}

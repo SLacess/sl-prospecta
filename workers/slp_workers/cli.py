@@ -6,6 +6,8 @@ Uso (no contêiner do worker):
     python -m slp_workers.cli relatorios --faltantes [--listar]  # gera os mini-relatórios que faltam (sem IA)
     python -m slp_workers.cli qualificar --faltantes [--listar]  # dá o score a quem ainda não tem (sem IA)
     python -m slp_workers.cli qualificar --todas [--listar]      # recalcula todos (ex.: pesos novos)
+    python -m slp_workers.cli decisores --pendentes [--listar]   # busca decisores (créditos do Apollo + IA)
+    python -m slp_workers.cli decisores --empresa <id> [--listar]
 
 `retomar` serve para empresas que ficaram para trás numa mudança de versão: por exemplo, as que já
 tinham dossiê (PESQUISANDO) antes do Auditor, ou auditoria sem nota antes do Auditor com IA.
@@ -153,6 +155,84 @@ def qualificar(todas: bool, listar: bool) -> int:
     return 0
 
 
+def _para_mapear(empresa_id: str | None) -> list:
+    from slp_workers.db import eventos
+    from slp_workers.orchestrator.decisores import EVENTOS_DE_MAPEAMENTO, MAPEANDO_DECISORES
+
+    engine = make_engine(get_config().database_url)
+    try:
+        with engine.connect() as conn:
+            consulta = select(empresas.c.id, empresas.c.nome, empresas.c.estado)
+            if empresa_id:
+                consulta = consulta.where(empresas.c.id == empresa_id)
+            else:
+                ja = exists().where(
+                    eventos.c.empresa_id == empresas.c.id, eventos.c.tipo.in_(EVENTOS_DE_MAPEAMENTO)
+                )
+                consulta = consulta.where(empresas.c.estado == MAPEANDO_DECISORES, ~ja)
+            return conn.execute(consulta.order_by(empresas.c.nome)).all()
+    finally:
+        engine.dispose()
+
+
+async def _mapear(alvo: list) -> int:
+    from slp_workers.llm import ClienteAnthropic
+    from slp_workers.orchestrator.decisores import CreditosEsgotados, DependenciasDecisores, Mapeamento
+    from slp_workers.web.apollo import ClienteApollo, ErroApollo
+
+    config = get_config()
+    engine = make_engine(config.database_url)
+    deps = DependenciasDecisores(
+        engine=engine,
+        ia=ClienteAnthropic(config),
+        config=config,
+        apollo=ClienteApollo(
+            config.apollo_api_key, base_url=config.apollo_base_url, timeout_s=config.apollo_timeout_s
+        ),
+    )
+    feitas = 0
+    try:
+        for e in alvo:
+            try:
+                r = await Mapeamento(deps, e.id).executar()
+            except CreditosEsgotados as exc:
+                print(f"Parado: {exc}. As demais ficam para amanhã.")
+                break
+            except ErroApollo as exc:
+                print(f"erro do Apollo  {e.nome}: {exc}")
+                continue
+            feitas += r in ("decisores_mapeados", "sem_decisores")
+            print(f"{r:<22} {e.nome}")
+            if r == "apollo_nao_configurado":
+                break
+    finally:
+        engine.dispose()
+    print(f"{feitas} de {len(alvo)} empresa(s) mapeadas.")
+    return 0
+
+
+def decisores(empresa_id: str | None, listar: bool) -> int:
+    from slp_workers.orchestrator.decisores import creditos_do_dia, custo_estimado
+
+    alvo = _para_mapear(empresa_id)
+    for e in alvo:
+        print(f"{e.estado:<20} {e.nome}")
+    config = get_config()
+    if listar:
+        engine = make_engine(config.database_url)
+        try:
+            usados = creditos_do_dia(engine)
+        finally:
+            engine.dispose()
+        creditos, ia = custo_estimado(3)
+        print(
+            f"{len(alvo)} empresa(s) seriam mapeadas: até {creditos * len(alvo)} crédito(s) do Apollo "
+            f"(hoje: {usados} de {config.apollo_daily_credit_cap}) e cerca de R$ {ia * len(alvo):.2f} de IA."
+        )
+        return 0
+    return asyncio.run(_mapear(alvo))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="slp_workers.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -168,6 +248,13 @@ def main() -> int:
     grupo.add_argument("--faltantes", action="store_true", help="Só as analisadas que ainda não têm score")
     grupo.add_argument("--todas", action="store_true", help="Recalcula todas as analisadas")
     q.add_argument("--listar", action="store_true", help="Só lista, sem calcular")
+    d = sub.add_parser("decisores", help="Busca os decisores (Mapeador: Apollo + fontes públicas)")
+    grupo_d = d.add_mutually_exclusive_group(required=True)
+    grupo_d.add_argument(
+        "--pendentes", action="store_true", help="Empresas em MAPEANDO_DECISORES ainda sem busca"
+    )
+    grupo_d.add_argument("--empresa", help="Só esta empresa (id), se estiver em MAPEANDO_DECISORES")
+    d.add_argument("--listar", action="store_true", help="Só lista e estima os créditos, sem buscar")
     args = parser.parse_args()
     if args.cmd == "retomar":
         return retomar(args.listar)
@@ -175,6 +262,8 @@ def main() -> int:
         return asyncio.run(_gerar_faltantes(args.listar))
     if args.cmd == "qualificar":
         return qualificar(args.todas, args.listar)
+    if args.cmd == "decisores":
+        return decisores(args.empresa, args.listar)
     return 1
 
 

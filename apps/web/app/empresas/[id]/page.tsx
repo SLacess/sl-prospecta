@@ -16,6 +16,7 @@ import {
   type UsuarioAtual,
 } from "@/lib/api";
 
+import { DecisoresDaEmpresa } from "./decisores";
 import { QualificacaoDaEmpresa } from "./qualificacao";
 import { RevisaoAuditoria } from "./revisao";
 
@@ -185,6 +186,7 @@ export default function FichaDoProspect() {
       </dl>
 
       {ficha.qualificacao && <QualificacaoDaEmpresa qualificacao={ficha.qualificacao} />}
+      {ficha.qualificacao && <DecisoresDaEmpresa decisores={ficha.decisores ?? []} />}
 
       <section className="card acoes-ficha" aria-labelledby="titulo-relatorio" style={{ marginTop: "1.5rem" }}>
         <h2 id="titulo-relatorio" style={{ marginTop: 0 }}>Mini-relatório</h2>
