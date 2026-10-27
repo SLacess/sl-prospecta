@@ -15,6 +15,7 @@ import {
 
 import { AuditoriaTecnica } from "./auditoria-tecnica";
 import { ConfirmarSite } from "./confirmar-site";
+import { EnvioPlanilha } from "./envio-planilha";
 
 /** Intervalo da consulta ao andamento (ADR 0002: consulta periódica em vez de WebSocket na Fase 1). */
 const INTERVALO_MS = 2000;
@@ -218,6 +219,8 @@ export default function PainelProspeccao() {
         {apollo && <p className="hint creditos-dia">{apollo.mensagem}</p>}
       </section>
 
+      <EnvioPlanilha />
+
       {detalhe && (
         <section className="card" aria-labelledby="titulo-andamento" style={{ marginTop: "1.5rem" }}>
           <h2 id="titulo-andamento" style={{ marginTop: 0 }}>
@@ -281,15 +284,6 @@ export default function PainelProspeccao() {
           </ol>
         </section>
       )}
-
-      <section className="card" aria-labelledby="titulo-lote" style={{ marginTop: "1.5rem" }}>
-        <h2 id="titulo-lote" style={{ marginTop: 0 }}>Prospecção em lote</h2>
-        <label htmlFor="planilha">Planilha de empresas (.xlsx ou .csv)</label>
-        <input id="planilha" type="file" accept=".xlsx,.csv" aria-describedby="planilha-dica" disabled />
-        <p id="planilha-dica" className="hint">
-          Disponível na Fase 2. A IA vai identificar as colunas sozinha e mostrar uma prévia antes de processar.
-        </p>
-      </section>
 
       <h2>Funil</h2>
       <div className="grid" role="list" aria-label="Indicadores do funil">

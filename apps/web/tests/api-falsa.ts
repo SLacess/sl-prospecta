@@ -297,6 +297,80 @@ export const PLACAR = {
   ],
 };
 
+
+export const LOTE_ID = "55555555-5555-4555-8555-555555555555";
+const CAMPOS_LOTE = [
+  ["empresa", "Empresa", 0], ["site", "Site", 1], ["cnpj", "CNPJ", 2], ["cidade", "Cidade", null],
+  ["uf", "UF", null], ["contato_nome", "Nome do contato", null], ["contato_cargo", "Cargo do contato", null],
+  ["contato_email", "E-mail do contato", null],
+] as const;
+
+export const LOTE_PREVIA = {
+  id: LOTE_ID,
+  nome_arquivo: "hospitais.xlsx",
+  status: "aguardando_confirmacao",
+  rotulo_status: "Aguardando sua confirmação",
+  total_linhas: 4,
+  criado_em: "2026-10-27T12:00:00Z",
+  confirmado_em: null as string | null,
+  colunas: [
+    { indice: 0, cabecalho: "Razão Social" },
+    { indice: 1, cabecalho: "Site" },
+    { indice: 2, cabecalho: "CNPJ" },
+  ],
+  campos: CAMPOS_LOTE.map(([campo, rotulo, coluna]) => ({ campo, rotulo, coluna: coluna as number | null })),
+  mapeamento_origem: "regras",
+  aviso_mapeamento: null as string | null,
+  resumo: { total: 4, novas: 2, ja_cadastradas: 1, repetidas: 0, invalidas: 1, com_avisos: 1 } as unknown,
+  previa: [
+    { numero: 2, empresa: "Hospital A", site: "hospital-a.com.br", cnpj: "11222333000181", situacao: "nova",
+      rotulo_situacao: "Nova", motivo: null, avisos: [] },
+    { numero: 3, empresa: "Clínica B", site: null, cnpj: null, situacao: "nova", rotulo_situacao: "Nova",
+      motivo: null, avisos: ["CNPJ com dígito verificador errado (ignorado)"] },
+    { numero: 4, empresa: "Já Existe", site: "existente.com.br", cnpj: null, situacao: "ja_cadastrada",
+      rotulo_situacao: "Já cadastrada", motivo: "já cadastrada como Já Existe", avisos: [] },
+    { numero: 5, empresa: null, site: null, cnpj: null, situacao: "invalida", rotulo_situacao: "Inválida",
+      motivo: "sem nome da empresa nem site legível", avisos: [] },
+  ],
+  estimativa: {
+    custo_ia_brl: "2.00", creditos_apollo: 8, dias_pelos_tetos: 1,
+    texto: "Estimativa para 2 empresa(s) nova(s): cerca de R$ 2,00 de IA e até 8 crédito(s) do Apollo.",
+  } as unknown,
+  progresso: null as unknown,
+  empresas: [] as unknown[],
+  linhas_ignoradas: [] as unknown[],
+};
+
+export const LOTE_PROCESSANDO = {
+  ...LOTE_PREVIA,
+  status: "processando",
+  rotulo_status: "Em processamento",
+  confirmado_em: "2026-10-27T12:05:00Z",
+  resumo: null as unknown,
+  previa: [],
+  estimativa: null as unknown,
+  progresso: {
+    total: 2, finalizadas: 1, percentual: 50,
+    texto: "1 de 2 empresa(s) já passaram da pesquisa e da auditoria (50%).",
+    etapas: [
+      { chave: "na_fila", rotulo: "Na fila", quantidade: 1 },
+      { chave: "pesquisando", rotulo: "Pesquisando", quantidade: 0 },
+      { chave: "auditando", rotulo: "Auditando", quantidade: 0 },
+      { chave: "qualificadas", rotulo: "Qualificadas", quantidade: 0 },
+      { chave: "com_decisores", rotulo: "Com decisores", quantidade: 1 },
+      { chave: "com_problema", rotulo: "Precisam de atenção", quantidade: 0 },
+    ],
+  } as unknown,
+  empresas: [
+    { id: "e1", nome: "Hospital A", dominio: "hospital-a.com.br", estado: "PREPARANDO_ABORDAGEM", score: 82, problema: null },
+    { id: "e2", nome: "Clínica B", dominio: null, estado: "NOVO", score: null, problema: null },
+  ] as unknown[],
+  linhas_ignoradas: [
+    { linha: 4, motivo: "já cadastrada como Já Existe" },
+    { linha: 5, motivo: "sem nome da empresa nem site legível" },
+  ] as unknown[],
+};
+
 interface Opcoes {
   disjuntorAtingido?: boolean;
   respostaPost?: { status: number; corpo: unknown };
@@ -309,6 +383,8 @@ interface Opcoes {
   papel?: "admin" | "vendedor" | "leitura";
   respostaRevisao?: { status: number; corpo: unknown };
   respostaConfigScore?: { status: number; corpo: unknown };
+  respostaEnvioLote?: { status: number; corpo: unknown };
+  lote?: unknown;
 }
 
 function json(route: Route, status: number, corpo: unknown) {
@@ -324,6 +400,9 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
   const revisoes: unknown[] = [];
   const confirmacoes: unknown[] = [];
   const configs: unknown[] = [];
+  const envios: string[] = [];
+  const acoesLote: unknown[] = [];
+  let loteAtual: unknown = opcoes.lote ?? LOTE_PREVIA;
   let andamento = opcoes.andamento ?? ANDAMENTO_PADRAO;
   let consulta = 0;
 
@@ -379,6 +458,27 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
       return json(route, 200, { id: "u1", nome: "Marcos", email: "m@x.com", papel: opcoes.papel ?? "vendedor" });
     }
     if (url.pathname === "/revisao/fase1") return json(route, 200, PLACAR);
+    if (url.pathname === "/lotes" && req.method() === "POST") {
+      envios.push(req.headers()["content-type"] ?? "");
+      const r = opcoes.respostaEnvioLote ?? { status: 201, corpo: LOTE_PREVIA };
+      return json(route, r.status, r.corpo);
+    }
+    if (url.pathname === "/lotes") return json(route, 200, [LOTE_PREVIA]);
+    if (url.pathname === `/lotes/${LOTE_ID}/mapeamento` && req.method() === "PUT") {
+      acoesLote.push({ acao: "mapeamento", corpo: req.postDataJSON() });
+      return json(route, 200, { ...LOTE_PREVIA, mapeamento_origem: "humano" });
+    }
+    if (url.pathname === `/lotes/${LOTE_ID}/confirmar` && req.method() === "POST") {
+      acoesLote.push({ acao: "confirmar" });
+      loteAtual = LOTE_PROCESSANDO;
+      return json(route, 200, LOTE_PROCESSANDO);
+    }
+    if (url.pathname === `/lotes/${LOTE_ID}/cancelar` && req.method() === "POST") {
+      acoesLote.push({ acao: "cancelar" });
+      loteAtual = { ...LOTE_PREVIA, status: "cancelado", rotulo_status: "Cancelado", resumo: null, previa: [] };
+      return json(route, 200, loteAtual);
+    }
+    if (url.pathname === `/lotes/${LOTE_ID}`) return json(route, 200, loteAtual);
     if (url.pathname === "/config/score") {
       if (req.method() === "PUT") {
         configs.push(req.postDataJSON());
@@ -417,5 +517,5 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
     return json(route, 404, { detail: "não simulado" });
   });
 
-  return { posts, confirmacoes, revisoes, configs };
+  return { posts, confirmacoes, revisoes, configs, envios, acoesLote };
 }

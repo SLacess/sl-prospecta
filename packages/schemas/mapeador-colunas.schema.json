@@ -1,0 +1,109 @@
+{
+  "properties": {
+    "empresa": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Empresa"
+    },
+    "site": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Site"
+    },
+    "cnpj": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Cnpj"
+    },
+    "cidade": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Cidade"
+    },
+    "uf": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Uf"
+    },
+    "contato_nome": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Contato Nome"
+    },
+    "contato_cargo": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Contato Cargo"
+    },
+    "contato_email": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Contato Email"
+    },
+    "raciocinio_resumido": {
+      "title": "Raciocinio Resumido",
+      "type": "string"
+    }
+  },
+  "required": [
+    "empresa",
+    "site",
+    "cnpj",
+    "cidade",
+    "uf",
+    "contato_nome",
+    "contato_cargo",
+    "contato_email",
+    "raciocinio_resumido"
+  ],
+  "title": "MapeamentoColunas",
+  "type": "object"
+}

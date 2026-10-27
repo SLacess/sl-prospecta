@@ -24,7 +24,7 @@ test("prospecção só com teclado anuncia o andamento no status", async ({ page
   await page.keyboard.type("hospitalexemplo.com.br");
   await page.keyboard.press("Enter");
 
-  const status = page.getByRole("status");
+  const status = page.getByRole("region", { name: "Prospecção individual" }).getByRole("status");
   await expect(status).toHaveText("Empresa cadastrada. Processamento na fila.");
   expect(posts).toEqual([{ alvo: "hospitalexemplo.com.br" }]);
 
@@ -61,7 +61,9 @@ test("entrada duplicada avisa que a empresa já está cadastrada", async ({ page
   await page.goto("/");
   await page.getByLabel("Nome da empresa ou site").fill("https://www.hospitalexemplo.com.br/contato");
   await page.getByRole("button", { name: "Prospectar" }).click();
-  await expect(page.getByRole("status")).toContainText("já está cadastrada");
+  await expect(page.getByRole("region", { name: "Prospecção individual" }).getByRole("status")).toContainText(
+    "já está cadastrada",
+  );
   await expect(page.getByRole("heading", { name: `Andamento: ${EMPRESA.nome}` })).toBeVisible();
 });
 

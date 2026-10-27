@@ -369,3 +369,92 @@ export interface UsuarioAtual {
   email: string;
   papel: "admin" | "vendedor" | "leitura";
 }
+
+// --- Lotes por planilha (Fase 2, §7.2 entrada 2) ---
+
+export type StatusLote = "mapeando" | "aguardando_confirmacao" | "processando" | "concluido" | "cancelado";
+export type SituacaoLinha = "nova" | "ja_cadastrada" | "repetida" | "invalida";
+
+export interface LoteResumo {
+  id: string;
+  nome_arquivo: string;
+  status: StatusLote;
+  rotulo_status: string;
+  total_linhas: number;
+  criado_em: string;
+  confirmado_em: string | null;
+}
+
+export interface LoteDetalhe extends LoteResumo {
+  colunas: { indice: number; cabecalho: string }[];
+  campos: { campo: string; rotulo: string; coluna: number | null }[];
+  mapeamento_origem: "regras" | "ia" | "humano";
+  aviso_mapeamento: string | null;
+  resumo: {
+    total: number;
+    novas: number;
+    ja_cadastradas: number;
+    repetidas: number;
+    invalidas: number;
+    com_avisos: number;
+  } | null;
+  previa: {
+    numero: number;
+    empresa: string | null;
+    site: string | null;
+    cnpj: string | null;
+    situacao: SituacaoLinha;
+    rotulo_situacao: string;
+    motivo: string | null;
+    avisos: string[];
+  }[];
+  estimativa: { custo_ia_brl: string; creditos_apollo: number; dias_pelos_tetos: number; texto: string } | null;
+  progresso: {
+    total: number;
+    finalizadas: number;
+    percentual: number;
+    etapas: { chave: string; rotulo: string; quantidade: number }[];
+    texto: string;
+  } | null;
+  empresas: {
+    id: string;
+    nome: string;
+    dominio: string | null;
+    estado: EstadoProspect;
+    score: number | null;
+    problema: string | null;
+  }[];
+  linhas_ignoradas: { linha: number; motivo: string | null }[];
+}
+
+/** Envia um arquivo (multipart). O navegador define o Content-Type com o boundary. */
+export async function enviarArquivo<T>(caminho: string, campo: string, arquivo: File): Promise<T> {
+  const token = lerToken();
+  const corpo = new FormData();
+  corpo.append(campo, arquivo);
+  let r: Response;
+  try {
+    r = await fetch(`${API_URL}${caminho}`, {
+      method: "POST",
+      body: corpo,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  } catch {
+    throw new ErroApi(0, "Não foi possível conectar à API. Verifique a conexão e tente novamente.");
+  }
+  if (r.status === 401) {
+    sair();
+    throw new ErroApi(401, "Sua sessão expirou. Entre novamente.");
+  }
+  if (!r.ok) {
+    let detalhe: string | undefined;
+    try {
+      const j = await r.json();
+      if (typeof j?.detail === "string") detalhe = j.detail;
+    } catch {
+      /* resposta sem JSON */
+    }
+    throw new ErroApi(r.status, detalhe ?? "Não foi possível enviar o arquivo.");
+  }
+  return (await r.json()) as T;
+}

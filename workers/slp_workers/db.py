@@ -140,6 +140,15 @@ supressao = Table(
     Column("motivo", String(120)),
 )
 
+lotes = Table(
+    "lotes", metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("status", String(30)),
+    Column("mapeamento_json", JSON),
+    Column("mapeamento_origem", String(20)),
+    Column("resumo_json", JSON),
+)
+
 config = Table(
     "config", metadata,
     Column("chave", String(80), primary_key=True),
@@ -172,7 +181,7 @@ def registrar_acao(
     engine: Engine,
     *,
     agente: str,
-    empresa_id: uuid.UUID,
+    empresa_id: uuid.UUID | None,
     entrada_hash: str,
     saida: dict,
     raciocinio: str | None,

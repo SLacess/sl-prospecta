@@ -1,0 +1,13 @@
+Razão Social;Site;CNPJ;Cidade;UF;Contato;Cargo;E-mail
+Hospital Exemplo Sorocaba;hospital-exemplo-sorocaba.com.br;11.222.333/0001-81;Sorocaba;SP;Ana Prado;Diretora de TI;ana.prado@hospital-exemplo-sorocaba.com.br
+Clínica Exemplo Itu;https://www.clinica-exemplo-itu.com.br;;Itu;SP;;;
+Faculdade Exemplo Campinas;faculdade-exemplo.edu.br;12.345.678/0001-00;Campinas;XX;;;
+Loja Exemplo Online;loja-exemplo.com.br;;São Paulo;SP;Bruno Lima;Gerente de Marketing;bruno.lima@gmail.com
+Banco Exemplo Digital;banco-exemplo.com.br;;São Paulo;SP;;;
+Hospital Exemplo Sorocaba (filial);www.hospital-exemplo-sorocaba.com.br/contato;;Sorocaba;SP;;;
+Cooperativa Exemplo;;;Sorocaba;SP;;;
+;;;;;;;
+;site ruim sem ponto;;;;;;
+Faculdade Exemplo Campinas (duplicada);https://faculdade-exemplo.edu.br;;;;;;
+Escola Exemplo Técnica;escola-exemplo.edu.br;;Votorantim;SP;Carla Souza;Coordenadora de Comunicação;carla@escola-exemplo.edu.br
+Operadora Exemplo Saúde;operadora-exemplo.com.br;;Sorocaba;SP;;;

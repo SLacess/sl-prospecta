@@ -12,3 +12,4 @@ python-multipart==0.0.*
 arq==0.26.*
 tzdata>=2024.1  # fuso America/Sao_Paulo do disjuntor de custo
 minio==7.2.*  # prints e mini-relatórios guardados pelos workers
+openpyxl==3.1.*  # leitura de planilhas .xlsx do upload em lote

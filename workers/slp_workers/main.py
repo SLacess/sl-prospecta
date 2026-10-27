@@ -3,6 +3,7 @@
 Todo job do pipeline passa pelo orquestrador (CONSTITUICAO §5 e §7). Fase 1:
 `processar_empresa`, enfileirado pela API quando uma empresa entra (ou tem o site confirmado) e pelo
 worker-audit quando a auditoria técnica termina: roda o Pesquisador e o Auditor com IA.
+Fase 2: o mesmo job qualifica e mapeia decisores; `mapear_colunas_lote` identifica as colunas de uma planilha.
 """
 
 import logging
@@ -15,6 +16,7 @@ from slp_workers.audit.artefatos import ArmazenamentoMinio
 from slp_workers.db import make_engine
 from slp_workers.llm import ClienteAnthropic
 from slp_workers.orchestrator.budget import MAX_TENTATIVAS_JOB_IA
+from slp_workers.orchestrator.lotes import mapear_colunas_lote
 from slp_workers.orchestrator.pipeline import processar_empresa
 from slp_workers.settings import get_config
 from slp_workers.web.ratelimit import LimitadorRedis
@@ -52,7 +54,11 @@ async def shutdown(ctx: dict) -> None:
 
 class WorkerSettings:
     # keep_result=0: o job_id fixo evita duplicata só enquanto o job existe; terminado, a empresa pode voltar
-    functions = [ping, func(processar_empresa, max_tries=MAX_TENTATIVAS_JOB_IA, keep_result=0)]
+    functions = [
+        ping,
+        func(processar_empresa, max_tries=MAX_TENTATIVAS_JOB_IA, keep_result=0),
+        func(mapear_colunas_lote, max_tries=1, keep_result=0),
+    ]
     cron_jobs = [cron(heartbeat, minute={0, 15, 30, 45})]
     on_startup = startup
     on_shutdown = shutdown
