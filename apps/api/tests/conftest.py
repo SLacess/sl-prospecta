@@ -50,6 +50,7 @@ class FilaFalsa:
 
     def __init__(self):
         self.enviados: list = []
+        self.mapeamentos: list = []
         self.indisponivel = False
 
     async def enfileirar_processamento(self, empresa_id):
@@ -60,6 +61,14 @@ class FilaFalsa:
         if empresa_id in self.enviados:
             return False
         self.enviados.append(empresa_id)
+        return True
+
+    async def enfileirar_mapeamento_colunas(self, lote_id, colunas):
+        from app.queue import FilaIndisponivel
+
+        if self.indisponivel:
+            raise FilaIndisponivel("redis fora do ar")
+        self.mapeamentos.append((lote_id, colunas))
         return True
 
 

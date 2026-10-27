@@ -23,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <nav aria-label="Navegação principal">
             <ul>
               <li><a href="/">Prospecção</a></li>
+              <li><a href="/lotes">Lotes</a></li>
               <li><a href="/revisao">Revisão da Fase 1</a></li>
               <li><a href="/configuracoes">Configurações</a></li>
               <li><NavSessao /></li>

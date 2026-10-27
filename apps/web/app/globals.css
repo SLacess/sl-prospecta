@@ -315,3 +315,13 @@ button.secundario { background: var(--surface); color: var(--primary); }
 
 /* Decisores: a situação do e-mail está escrita; o peso da fonte só reforça */
 .status-email.email-valido { font-weight: 700; }
+
+/* Prospecção em lote */
+.area-arquivo { border: 2px dashed var(--border); border-radius: var(--radius); padding: 1rem; }
+.area-arquivo.arrastando { border-color: var(--primary); background: var(--bg); }
+.area-arquivo input[type="file"] { width: 100%; }
+.progresso-lote { width: 100%; height: 1.25rem; accent-color: var(--primary); }
+.campos-lote { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.75rem 1rem; }
+.campos-lote select { width: 100%; font: inherit; padding: 0.45rem; border: 2px solid var(--border);
+  border-radius: 8px; background: var(--surface); color: var(--text); }
+.situacao-linha.situacao-invalida, .situacao-linha.situacao-repetida { font-weight: 600; }

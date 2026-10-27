@@ -9,6 +9,7 @@ from fastapi import Request
 from app.config import get_settings
 
 JOB_PROCESSAR_EMPRESA = "processar_empresa"
+JOB_MAPEAR_COLUNAS = "mapear_colunas_lote"
 
 
 class FilaIndisponivel(RuntimeError):
@@ -45,6 +46,17 @@ class Fila:
         try:
             job = await pool.enqueue_job(
                 JOB_PROCESSAR_EMPRESA, str(empresa_id), _job_id=job_id_processamento(empresa_id)
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise FilaIndisponivel(str(exc)) from exc
+        return job is not None
+
+    async def enfileirar_mapeamento_colunas(self, lote_id: uuid.UUID, colunas: list[dict]) -> bool:
+        """Mapeamento de colunas com IA no worker; recebe só cabeçalhos e exemplos mascarados."""
+        pool = await self._pool()
+        try:
+            job = await pool.enqueue_job(
+                JOB_MAPEAR_COLUNAS, str(lote_id), colunas, _job_id=f"{JOB_MAPEAR_COLUNAS}:{lote_id}"
             )
         except Exception as exc:  # noqa: BLE001
             raise FilaIndisponivel(str(exc)) from exc

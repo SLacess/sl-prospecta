@@ -2,7 +2,7 @@
 
 Fase 0: usuários, empresas, eventos, ações de agentes, supressão, config.
 Fase 1: dossiês e auditorias (migração 0002); revisões dos achados (0003).
-Fase 2: qualificações (0004); contatos e créditos de dados (0005).
+Fase 2: qualificações (0004); contatos e créditos de dados (0005); lotes de planilha (0006).
 Tabelas das fases seguintes (contatos, mensagens...) entram em migrações próprias.
 """
 
@@ -92,7 +92,35 @@ class Empresa(Base):
         index=True,
     )
     responsavel_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuarios.id"))
+    lote_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("lotes.id", ondelete="SET NULL"), index=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Lote(Base):
+    """Planilha enviada para prospecção em lote (CONSTITUICAO §7.2, entrada 2)."""
+
+    __tablename__ = "lotes"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('mapeando', 'aguardando_confirmacao', 'processando', 'cancelado')",
+            name="ck_lotes_status",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
+    nome_arquivo: Mapped[str] = mapped_column(String(255))
+    criado_por: Mapped[uuid.UUID] = mapped_column(ForeignKey("usuarios.id"))
+    status: Mapped[str] = mapped_column(String(30))
+    total_linhas: Mapped[int] = mapped_column(Integer)
+    linha_cabecalho: Mapped[int] = mapped_column(Integer, default=1)  # para a prévia citar a linha do arquivo
+    cabecalhos_json: Mapped[list] = mapped_column(JSON, default=list)
+    # Linhas da planilha só até a confirmação ou o cancelamento (coleta mínima, §15.1)
+    linhas_json: Mapped[list | None] = mapped_column(JSON)
+    mapeamento_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    mapeamento_origem: Mapped[str] = mapped_column(String(20))  # regras | ia | humano
+    resumo_json: Mapped[dict | None] = mapped_column(JSON)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    confirmado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Evento(Base):
