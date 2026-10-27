@@ -251,6 +251,14 @@ export const FICHA = {
     regra_versao: "regra-v1",
     criado_em: "2026-10-26T15:00:00Z",
   } as unknown,
+  decisores: [
+    { id: "c1", nome: "Ana Souza", cargo: "CTO", area: "TI", email: "ana@hospitalexemplo.com.br",
+      email_status: "valido", rotulo_email: "e-mail verificado", linkedin_url: "http://www.linkedin.com/in/ana-souza",
+      fonte: "apollo", fonte_url: null },
+    { id: "c2", nome: "Carla Dias", cargo: "Diretora de Compliance", area: "Compliance", email: null,
+      email_status: "sem_email", rotulo_email: "sem e-mail", linkedin_url: null,
+      fonte: "web+apollo", fonte_url: "https://hospitalexemplo.com.br/diretoria" },
+  ] as unknown[],
   relatorio_disponivel: true,
   eventos: EVENTOS_FINAIS,
 };
@@ -338,6 +346,7 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
               "Novas empresas ficam na fila e o processamento recomeça amanhã."
             : "Custo de IA hoje: R$ 4,10 de R$ 30,00.",
         },
+        apollo: { creditos_hoje: 8, teto: 60, atingido: false, mensagem: "Créditos do Apollo hoje: 8 de 60." },
       });
     }
     if (url.pathname === "/prospeccao" && req.method() === "POST") {

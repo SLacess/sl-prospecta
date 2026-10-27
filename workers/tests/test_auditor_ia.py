@@ -341,8 +341,8 @@ def test_analise_grava_o_json_do_8_2_e_passa_para_qualificando(engine, monkeypat
     assert ultimo.tipo == "analise_pronta"
     assert f"nota {a.nota} de 100" in ultimo.dados_json["mensagem"]
     assert ultimo.dados_json["prints_analisados"] == 2
-    # Fim da análise: Qualificador (Fase 2) e depois o mini-relatório (Tarefa 5)
-    assert tipos[-3:] == ["analise_pronta", "qualificado", "relatorio_pronto"]
+    # Fim da análise: Qualificador e mini-relatório; sem chave do Apollo, o Mapeador só registra que espera
+    assert tipos[-4:] == ["analise_pronta", "qualificado", "relatorio_pronto", "apollo_nao_configurado"]
     assert any(k.startswith(f"relatorios/{eid}/") and k.endswith(".pdf") for k in armazenamento.arquivos)
 
 

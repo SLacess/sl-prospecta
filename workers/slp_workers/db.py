@@ -11,6 +11,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     Column,
     DateTime,
     Engine,
@@ -96,6 +97,7 @@ acoes_agentes = Table(
     Column("tokens_out", Integer),
     Column("custo", Numeric(10, 4)),
     Column("duracao_ms", Integer),
+    Column("creditos", Integer, default=0),
     Column("criado_em", DateTime(timezone=True)),
 )
 
@@ -111,6 +113,31 @@ qualificacoes = Table(
     Column("pesos_json", JSON),
     Column("regra_versao", String(20)),
     Column("criado_em", DateTime(timezone=True)),
+)
+
+contatos = Table(
+    "contatos", metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("empresa_id", Uuid, ForeignKey("empresas.id")),
+    Column("nome", String(200)),
+    Column("cargo", String(200)),
+    Column("area", String(30)),
+    Column("email", String(255)),
+    Column("email_status", String(20)),
+    Column("linkedin_url", String(500)),
+    Column("opt_out", Boolean, default=False),
+    Column("fonte", String(30)),
+    Column("fonte_url", String(500)),
+    Column("apollo_id", String(64)),
+    Column("criado_em", DateTime(timezone=True)),
+)
+
+supressao = Table(
+    "supressao", metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("email", String(255)),
+    Column("dominio", String(255)),
+    Column("motivo", String(120)),
 )
 
 config = Table(
@@ -154,6 +181,7 @@ def registrar_acao(
     tokens_out: int,
     custo_brl: Decimal,
     duracao_ms: int,
+    creditos: int = 0,
 ) -> None:
     """Toda ação de IA fica registrada, inclusive as que falharam depois de gastar (CONSTITUICAO §2.7)."""
     with engine.begin() as conn:
@@ -161,7 +189,8 @@ def registrar_acao(
             acoes_agentes.insert().values(
                 id=uuid.uuid4(), agente=agente, empresa_id=empresa_id, entrada_hash=entrada_hash,
                 saida_json=saida, raciocinio=raciocinio, modelo=modelo, tokens_in=tokens_in,
-                tokens_out=tokens_out, custo=custo_brl, duracao_ms=duracao_ms, criado_em=datetime.now(UTC),
+                tokens_out=tokens_out, custo=custo_brl, duracao_ms=duracao_ms, creditos=creditos,
+                criado_em=datetime.now(UTC),
             )
         )
 

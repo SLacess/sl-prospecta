@@ -1,0 +1,55 @@
+{
+  "$defs": {
+    "Escolha": {
+      "properties": {
+        "candidato_id": {
+          "title": "Candidato Id",
+          "type": "string"
+        },
+        "area": {
+          "enum": [
+            "TI",
+            "RH",
+            "D&I",
+            "Marketing",
+            "ESG",
+            "Compliance"
+          ],
+          "title": "Area",
+          "type": "string"
+        },
+        "motivo": {
+          "title": "Motivo",
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidato_id",
+        "area",
+        "motivo"
+      ],
+      "title": "Escolha",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "escolhidos": {
+      "description": "No máximo uma pessoa por área",
+      "items": {
+        "$ref": "#/$defs/Escolha"
+      },
+      "title": "Escolhidos",
+      "type": "array"
+    },
+    "raciocinio_resumido": {
+      "title": "Raciocinio Resumido",
+      "type": "string"
+    }
+  },
+  "required": [
+    "escolhidos",
+    "raciocinio_resumido"
+  ],
+  "title": "EscolhaMapeador",
+  "type": "object"
+}

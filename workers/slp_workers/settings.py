@@ -46,6 +46,16 @@ class WorkerConfig(BaseSettings):
     audit_tab_presses: int = 40
     audit_axe_path: str = "/app/vendor/axe.min.js"
 
+    # Mapeador de decisores (CONSTITUICAO §7.3, Etapa 4). Chave em APOLLO_API_KEY (.env, nunca no código)
+    model_triage: str = "claude-haiku-5-5"
+    apollo_api_key: str = ""
+    apollo_base_url: str = "https://api.apollo.io/api/v1"
+    apollo_timeout_s: float = 20.0
+    apollo_daily_credit_cap: int = 60  # disjuntor de créditos do Apollo por dia (Brasília); igual na API
+    apollo_enrich_org: bool = True  # 1 crédito: porte, UF e cidade da empresa
+    apollo_max_candidatos: int = 25  # pessoas trazidas da busca (sem crédito) para o Mapeador escolher
+    decisores_max_web_searches: int = 3  # busca web em fontes públicas quando o Apollo não cobre as áreas
+
     # Prints das páginas (MinIO, compatível com S3)
     minio_endpoint: str = "http://minio:9000"
     minio_root_user: str = ""

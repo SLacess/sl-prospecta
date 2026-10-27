@@ -15,11 +15,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import Engine, select, update
+from sqlalchemy import Engine, func, select, update
 
 from slp_workers.agents.qualificador import EntradaQualificacao, Qualificacao, qualificar
 from slp_workers.db import (
     auditorias,
+    contatos,
     dossies,
     empresas,
     ler_config,
@@ -60,12 +61,19 @@ def _carregar(engine: Engine, empresa_id: uuid.UUID):
             .limit(1)
         ).first()
         cfg = ler_config(conn, "score_pesos", "score_faixas", "icp", "sinais_pesos", "pressao_setor")
-    return empresa, auditoria, dossie, cfg
+        validos = conn.scalar(
+            select(func.count()).where(
+                contatos.c.empresa_id == empresa_id,
+                contatos.c.email_status == "valido",
+                contatos.c.opt_out.is_(False),
+            )
+        )
+    return empresa, auditoria, dossie, cfg, int(validos or 0)
 
 
 def calcular(engine: Engine, empresa_id: uuid.UUID) -> tuple[Qualificacao, uuid.UUID] | None:
     """Só calcula. None quando ainda não há auditoria analisada (sem nota, não há o que qualificar)."""
-    empresa, auditoria, dossie, cfg = _carregar(engine, empresa_id)
+    empresa, auditoria, dossie, cfg, validos = _carregar(engine, empresa_id)
     if empresa is None or auditoria is None:
         return None
     dados = (dossie.dados_json if dossie else None) or {}
@@ -79,7 +87,7 @@ def calcular(engine: Engine, empresa_id: uuid.UUID) -> tuple[Qualificacao, uuid.
         sinais=list(sinais.get("sinais") or dados.get("sinais") or []),
         mencoes_inclusao=list(sinais.get("mencoes_inclusao") or dados.get("mencoes_inclusao") or []),
         nota_auditoria=int(auditoria.nota),
-        contatos_validos=0,  # a tabela `contatos` chega com o Mapeador de decisores (Fase 2, Tarefa 2)
+        contatos_validos=validos,
     )
     q = qualificar(
         entrada,

@@ -2,7 +2,7 @@
 
 Fase 0: usuários, empresas, eventos, ações de agentes, supressão, config.
 Fase 1: dossiês e auditorias (migração 0002); revisões dos achados (0003).
-Fase 2: qualificações (0004).
+Fase 2: qualificações (0004); contatos e créditos de dados (0005).
 Tabelas das fases seguintes (contatos, mensagens...) entram em migrações próprias.
 """
 
@@ -103,7 +103,7 @@ class Evento(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
     empresa_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("empresas.id"), index=True)
-    contato_id: Mapped[uuid.UUID | None] = mapped_column()  # FK entra na migração da Fase 2
+    contato_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("contatos.id", ondelete="SET NULL"))
     tipo: Mapped[str] = mapped_column(String(60))
     origem: Mapped[str] = mapped_column(String(40))  # agente | humano | prospect | sistema
     dados_json: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -126,6 +126,7 @@ class AcaoAgente(Base):
     tokens_out: Mapped[int] = mapped_column(Integer, default=0)
     custo: Mapped[Decimal] = mapped_column(Numeric(10, 4), default=0)
     duracao_ms: Mapped[int] = mapped_column(Integer, default=0)
+    creditos: Mapped[int] = mapped_column(Integer, default=0)  # créditos de dados (Apollo) usados pela ação
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
@@ -208,6 +209,33 @@ class Qualificacao(Base):
     componentes_json: Mapped[list] = mapped_column(JSON, default=list)
     pesos_json: Mapped[dict] = mapped_column(JSON, default=dict)
     regra_versao: Mapped[str] = mapped_column(String(20))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Contato(Base):
+    """Decisor da empresa (CONSTITUICAO §7.3, Etapa 4, e §17). Só dados profissionais (§15.1)."""
+
+    __tablename__ = "contatos"
+    __table_args__ = (
+        CheckConstraint(
+            "email_status IN ('valido', 'nao_verificado', 'sem_email')", name="ck_contatos_email_status"
+        ),
+        UniqueConstraint("empresa_id", "email", name="uq_contatos_empresa_email"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
+    empresa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("empresas.id", ondelete="CASCADE"), index=True)
+    nome: Mapped[str] = mapped_column(String(200))
+    cargo: Mapped[str | None] = mapped_column(String(200))
+    area: Mapped[str] = mapped_column(String(30))  # TI | RH | D&I | Marketing | ESG | Compliance
+    email: Mapped[str | None] = mapped_column(String(255), index=True)
+    email_status: Mapped[str] = mapped_column(String(20))  # valido | nao_verificado | sem_email
+    linkedin_url: Mapped[str | None] = mapped_column(String(500))
+    telefone: Mapped[str | None] = mapped_column(String(40))  # não coletado (coleta mínima)
+    opt_out: Mapped[bool] = mapped_column(default=False)
+    fonte: Mapped[str] = mapped_column(String(30))  # apollo | web+apollo
+    fonte_url: Mapped[str | None] = mapped_column(String(500))
+    apollo_id: Mapped[str | None] = mapped_column(String(64))
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

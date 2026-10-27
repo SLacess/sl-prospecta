@@ -8,3 +8,5 @@ Esquemas publicados (gerados dos modelos Pydantic; os testes do worker falham se
 - `auditoria.schema.json` — JSON do §8.2 gravado em `auditorias.achados_json`, com os campos obrigatórios
   `plugin_resolve_parcialmente` e `exige_ajuste_no_codigo`.
 - `qualificacao.schema.json` — saída do Qualificador (§7.3, Etapa 3), gravada em `qualificacoes`.
+- `mapeador.schema.json` — escolha do Mapeador de decisores (§7.3, Etapa 4): até 3 pessoas, uma por área.
+- `mapeador-web.schema.json` — pessoas encontradas em fontes públicas pela busca web (nunca o LinkedIn).

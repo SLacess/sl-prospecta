@@ -22,5 +22,14 @@ de soluções de acessibilidade digital, acompanhado de diagnóstico gratuito do
 ## 4. Fontes dos dados
 Apollo.io (base B2B), site público da organização, notícias públicas. Sem raspagem de redes sociais.
 
+Decisores (Mapeador, ADR 0009):
+- Nome e cargo vêm da busca de pessoas do Apollo ou, quando ela não cobre a área, de fontes públicas
+  encontradas pela busca web (site oficial da organização, comunicados, relatórios, imprensa). A URL da fonte
+  fica guardada com o contato.
+- O LinkedIn nunca é fonte nem é lido: um link de perfil só é guardado quando aparece nos próprios resultados
+  da busca ou no registro do Apollo.
+- O e-mail é sempre o profissional, no domínio da organização, obtido no Apollo e validado (MX e verificação).
+  Não pedimos e-mail pessoal nem telefone.
+
 ## 5. Encarregado (DPO) e contato
 _Preencher: nome e e-mail do encarregado pelo tratamento de dados da Sinal Link._

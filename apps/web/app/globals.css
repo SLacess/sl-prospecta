@@ -312,3 +312,6 @@ button.secundario { background: var(--surface); color: var(--primary); }
 .grade-pesos input { max-width: 8rem; }
 .soma-pesos { margin: 1rem 0 0; font-weight: 600; }
 .erro-campo { color: var(--danger); font-size: 0.92rem; margin: 0.25rem 0 0; }
+
+/* Decisores: a situação do e-mail está escrita; o peso da fonte só reforça */
+.status-email.email-valido { font-weight: 700; }

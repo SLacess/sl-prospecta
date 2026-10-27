@@ -2,7 +2,8 @@
 
 Fase 1: NOVO → PESQUISANDO (o Pesquisador monta o dossiê) → AUDITANDO (o Auditor técnico roda no
 serviço worker-audit, fila própria; depois o Auditor com IA dá a nota e explica os achados) → QUALIFICANDO.
-Fase 2: o Qualificador (regra fixa, sem IA) dá o score; quente e morno seguem para MAPEANDO_DECISORES.
+Fase 2: o Qualificador (regra fixa, sem IA) dá o score; quente e morno seguem para MAPEANDO_DECISORES, onde o
+Mapeador busca até 3 decisores (Apollo + fontes públicas) e, com e-mail válido, leva a PREPARANDO_ABORDAGEM.
 Os agentes devolvem dados validados; só este módulo grava no banco e na linha do tempo.
 """
 
@@ -35,10 +36,18 @@ from slp_workers.db import (
 )
 from slp_workers.filas import FILA_AUDITORIA, JOB_AUDITAR_EMPRESA, job_id_auditoria
 from slp_workers.llm import ClienteIA, Consumo, ErroIA
-from slp_workers.orchestrator.budget import requires_ai_budget
+from slp_workers.orchestrator.budget import requires_ai_budget, segundos_ate_reabrir
+from slp_workers.orchestrator.decisores import (
+    CreditosEsgotados,
+    DependenciasDecisores,
+    Mapeamento,
+    ja_mapeada,
+)
 from slp_workers.orchestrator.qualificacao import qualificar_e_gravar
 from slp_workers.orchestrator.relatorio import gerar_com_evento
 from slp_workers.settings import WorkerConfig, get_config
+from slp_workers.web.apollo import ClienteApollo, ErroApollo
+from slp_workers.web.emails import ResolvedorMX, tem_mx
 from slp_workers.web.fetcher import LeitorSite, LeituraBloqueada, Pagina, escolher_paginas
 from slp_workers.web.ratelimit import Limitador
 from slp_workers.web.safety import Resolvedor, resolver_dns
@@ -49,6 +58,7 @@ NOVO = "NOVO"
 PESQUISANDO = "PESQUISANDO"
 AUDITANDO = "AUDITANDO"
 QUALIFICANDO = "QUALIFICANDO"
+MAPEANDO_DECISORES = "MAPEANDO_DECISORES"
 MAX_PRINTS_ANALISE = 3
 
 EnfileirarAuditoria = Callable[[uuid.UUID], Awaitable[bool]]
@@ -100,19 +110,27 @@ class Dependencias:
     transport: httpx.AsyncBaseTransport | None = None
     enfileirar_auditoria: EnfileirarAuditoria | None = None
     armazenamento: Armazenamento | None = None
+    apollo: ClienteApollo | None = None
+    resolvedor_mx: ResolvedorMX = tem_mx
 
     @classmethod
     def do_ctx(cls, ctx: dict) -> "Dependencias":
+        config = ctx.get("config") or get_config()
         return cls(
             engine=ctx["engine"],
             ia=ctx["ia"],
             limitador=ctx["limitador"],
-            config=ctx.get("config") or get_config(),
+            config=config,
             resolvedor=ctx.get("resolvedor", resolver_dns),
             transport=ctx.get("transport"),
             enfileirar_auditoria=ctx.get("enfileirar_auditoria")
             or (_enfileirador_redis(ctx["redis"]) if "redis" in ctx else None),
             armazenamento=ctx.get("armazenamento"),
+            apollo=ctx.get("apollo")
+            or ClienteApollo(
+                config.apollo_api_key, base_url=config.apollo_base_url, timeout_s=config.apollo_timeout_s
+            ),
+            resolvedor_mx=ctx.get("resolvedor_mx", tem_mx),
         )
 
 
@@ -382,7 +400,23 @@ class Pesquisa:
         await self._qualificar()
         # Mini-relatório (§8.3), sem IA: uma falha aqui fica na linha do tempo e não desfaz a análise
         await gerar_com_evento(self.deps.engine, self.deps.armazenamento, self.empresa_id)
+        if (await asyncio.to_thread(self._carregar)).estado == MAPEANDO_DECISORES:
+            await self._mapear()
         return "analise_pronta"
+
+    async def _mapear(self) -> str:
+        """Mapeador de decisores (§7.3, Etapa 4). Créditos esgotados e falhas do Apollo sobem para o job."""
+        self.etapa = "mapeador"
+        if self.deps.apollo is None:
+            return "apollo_nao_configurado"
+        deps = DependenciasDecisores(
+            engine=self.deps.engine,
+            ia=self.deps.ia,
+            config=self.deps.config,
+            apollo=self.deps.apollo,
+            resolvedor_mx=self.deps.resolvedor_mx,
+        )
+        return await Mapeamento(deps, self.empresa_id).executar()
 
     def _tem_qualificacao(self) -> bool:
         with self.deps.engine.connect() as conn:
@@ -436,7 +470,14 @@ class Pesquisa:
             # Analisada antes do Qualificador existir (ou com a config inválida na hora): qualifica agora
             if await asyncio.to_thread(self._tem_qualificacao):
                 return "ja_qualificada"
-            return await self._qualificar()
+            resultado = await self._qualificar()
+            if (await asyncio.to_thread(self._carregar)).estado == MAPEANDO_DECISORES:
+                return await self._mapear()
+            return resultado
+        elif empresa.estado == MAPEANDO_DECISORES:
+            if await asyncio.to_thread(ja_mapeada, self.deps.engine, self.empresa_id):
+                return "ja_mapeada"
+            return await self._mapear()
         elif empresa.estado != PESQUISANDO:
             return "ignorado"
         if await asyncio.to_thread(self._tem_dossie):
@@ -468,6 +509,21 @@ async def processar_empresa(ctx: dict, empresa_id: str) -> str:
     pesquisa = Pesquisa(Dependencias.do_ctx(ctx), uuid.UUID(empresa_id))
     try:
         return await pesquisa.executar()
+    except CreditosEsgotados as exc:
+        await pesquisa.evento(
+            "fila_pausada_apollo",
+            "Teto diário de créditos do Apollo atingido: os decisores são buscados quando o teto reabrir.",
+            creditos_hoje=exc.usados,
+            teto=exc.teto,
+        )
+        raise Retry(defer=segundos_ate_reabrir()) from exc
+    except ErroApollo as exc:
+        if exc.transitorio and ctx.get("job_try", 1) < MAX_TENTATIVAS_TRANSITORIAS:
+            raise Retry(defer=300) from exc
+        await pesquisa.evento(
+            "mapeamento_falhou", f"O mapeamento de decisores falhou: {exc}. Reenvie a empresa mais tarde."
+        )
+        return "falhou"
     except ErroIA as exc:
         if exc.consumo is not None:
             await pesquisa.acao(pesquisa.etapa, "", {"erro": str(exc)}, None, exc.consumo)
@@ -476,6 +532,10 @@ async def processar_empresa(ctx: dict, empresa_id: str) -> str:
         if pesquisa.etapa == "auditor":
             await pesquisa.evento(
                 "analise_falhou", f"A análise da auditoria falhou: {exc}. Reenvie a empresa mais tarde."
+            )
+        elif pesquisa.etapa == "mapeador":
+            await pesquisa.evento(
+                "mapeamento_falhou", f"O mapeamento de decisores falhou: {exc}. Reenvie a empresa mais tarde."
             )
         else:
             await pesquisa.evento(

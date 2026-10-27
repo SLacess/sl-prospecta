@@ -37,6 +37,22 @@ def custo_do_dia(db: Session, agora: datetime | None = None) -> Decimal:
     return Decimal(str(total)).quantize(Decimal("0.01"))
 
 
+@dataclass(frozen=True)
+class DisjuntorCreditos:
+    creditos_hoje: int
+    teto: int
+    atingido: bool
+
+
+def verificar_creditos_apollo(db: Session, agora: datetime | None = None) -> DisjuntorCreditos:
+    """Créditos do Apollo usados hoje (`acoes_agentes.creditos`); no teto, o worker para o Mapeador."""
+    soma = func.coalesce(func.sum(AcaoAgente.creditos), 0)
+    total = db.scalar(select(soma).where(AcaoAgente.criado_em >= inicio_do_dia(agora)))
+    teto = get_settings().apollo_daily_credit_cap
+    usados = int(total or 0)
+    return DisjuntorCreditos(creditos_hoje=usados, teto=teto, atingido=usados >= teto)
+
+
 def verificar_disjuntor(db: Session, agora: datetime | None = None) -> DisjuntorCusto:
     teto = get_settings().daily_ai_budget_brl
     custo = custo_do_dia(db, agora)
