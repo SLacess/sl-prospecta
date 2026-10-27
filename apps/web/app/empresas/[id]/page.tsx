@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { AuditoriaTecnica } from "@/app/auditoria-tecnica";
+import { MoverEstado } from "@/app/mover-estado";
 import {
   apiFetch,
   baixarArquivo,
@@ -98,6 +99,7 @@ export default function FichaDoProspect() {
   const [anuncio, setAnuncio] = useState("");
   const [baixando, setBaixando] = useState(false);
   const [usuario, setUsuario] = useState<UsuarioAtual | null>(null);
+  const [movendo, setMovendo] = useState(false);
 
   useEffect(() => {
     if (!lerToken()) {
@@ -169,7 +171,17 @@ export default function FichaDoProspect() {
         </div>
         <div>
           <dt>Estado</dt>
-          <dd>{ROTULO_ESTADO[empresa.estado] ?? empresa.estado}</dd>
+          <dd>
+            {ROTULO_ESTADO[empresa.estado] ?? empresa.estado}
+            {(usuario?.papel === "admin" || usuario?.papel === "vendedor") && (ficha.destinos?.length ?? 0) > 0 && (
+              <>
+                {" "}
+                <button type="button" id="mudar-estado" className="link" onClick={() => setMovendo(true)}>
+                  Mudar estado…
+                </button>
+              </>
+            )}
+          </dd>
         </div>
         {empresa.setor && (
           <div>
@@ -298,6 +310,32 @@ export default function FichaDoProspect() {
 
       {usuario?.papel === "admin" && auditoria?.nota !== null && auditoria?.analise && (
         <RevisaoAuditoria auditoriaId={auditoria.id} />
+      )}
+
+      {movendo && (
+        <MoverEstado
+          empresa={{ id: empresa.id, nome: empresa.nome, estado: empresa.estado }}
+          destinos={ficha.destinos ?? []}
+          aoMover={(novo) => {
+            setMovendo(false);
+            setAnuncio(`Estado alterado para ${ROTULO_ESTADO[novo.estado] ?? novo.estado}.`);
+            apiFetch<Ficha>(`/empresas/${id}/ficha`)
+              .then(setFicha)
+              .catch(() => undefined);
+            requestAnimationFrame(() => document.getElementById("mudar-estado")?.focus());
+          }}
+          aoConflito={(mensagem) => {
+            setMovendo(false);
+            setErro(mensagem);
+            apiFetch<Ficha>(`/empresas/${id}/ficha`)
+              .then(setFicha)
+              .catch(() => undefined);
+          }}
+          aoFechar={() => {
+            setMovendo(false);
+            requestAnimationFrame(() => document.getElementById("mudar-estado")?.focus());
+          }}
+        />
       )}
 
       <section className="card" aria-labelledby="titulo-linha" style={{ marginTop: "1.5rem" }}>

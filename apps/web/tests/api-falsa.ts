@@ -259,6 +259,10 @@ export const FICHA = {
       email_status: "sem_email", rotulo_email: "sem e-mail", linkedin_url: null,
       fonte: "web+apollo", fonte_url: "https://hospitalexemplo.com.br/diretoria" },
   ] as unknown[],
+  destinos: [
+    { estado: "MAPEANDO_DECISORES", rotulo: "Mapeando decisores", motivo_obrigatorio: false },
+    { estado: "ARQUIVADO", rotulo: "Arquivado", motivo_obrigatorio: true },
+  ] as unknown[],
   relatorio_disponivel: true,
   eventos: EVENTOS_FINAIS,
 };
@@ -371,6 +375,44 @@ export const LOTE_PROCESSANDO = {
   ] as unknown[],
 };
 
+
+const DESTINO = (estado: string, rotulo: string, motivo_obrigatorio = false) => ({ estado, rotulo, motivo_obrigatorio });
+export const CARTAO_FRIO = {
+  id: "c-frio", nome: "Hospital Frio", dominio: "hospital-frio.com.br", estado: "QUALIFICANDO", setor: "saude",
+  score: 30, faixa: "frio", rotulo_faixa: "Frio", nota_acessibilidade: 80, proximo_passo: "Decidir: seguir ou arquivar",
+  responsavel: "Marcos", problema: null,
+  destinos: [DESTINO("MAPEANDO_DECISORES", "Mapeando decisores"), DESTINO("ARQUIVADO", "Arquivado", true)],
+};
+export const CARTAO_QUENTE = {
+  id: "c-quente", nome: "Hospital Quente", dominio: "hospital-quente.com.br", estado: "PREPARANDO_ABORDAGEM",
+  setor: "saude", score: 88, faixa: "quente", rotulo_faixa: "Quente", nota_acessibilidade: 12,
+  proximo_passo: "Aguarda a Fase 3 (abordagem)", responsavel: null, problema: null,
+  destinos: [DESTINO("REUNIAO_AGENDADA", "Reunião agendada"), DESTINO("ARQUIVADO", "Arquivado", true)],
+};
+export const CARTAO_PROBLEMA = {
+  id: "c-problema", nome: "Site Fora", dominio: "site-fora.com.br", estado: "PESQUISANDO", setor: null, score: null,
+  faixa: null, rotulo_faixa: null, nota_acessibilidade: null, proximo_passo: "Ver na ficha: site não pôde ser lido",
+  responsavel: null, problema: "site não pôde ser lido", destinos: [DESTINO("ARQUIVADO", "Arquivado", true)],
+};
+const ESTADOS_QUADRO: [string, string, boolean][] = [
+  ["NOVO", "Novo", false], ["PESQUISANDO", "Pesquisando", false], ["AUDITANDO", "Auditando", false],
+  ["QUALIFICANDO", "Qualificando", false], ["MAPEANDO_DECISORES", "Mapeando decisores", false],
+  ["PREPARANDO_ABORDAGEM", "Preparando abordagem", false], ["EM_SEQUENCIA", "Em sequência", true],
+  ["SEM_RESPOSTA", "Sem resposta", true], ["RESPONDEU", "Respondeu", true], ["NAO_INTERESSADO", "Não interessado", true],
+  ["REUNIAO_AGENDADA", "Reunião agendada", false], ["PROPOSTA_ENVIADA", "Proposta enviada", false],
+  ["NEGOCIACAO", "Negociação", false], ["GANHO", "Ganho", false], ["PERDIDO", "Perdido", false],
+  ["ARQUIVADO", "Arquivado", false],
+];
+export function montarQuadro(cartoes: { estado: string }[]) {
+  return {
+    total: cartoes.length,
+    colunas: ESTADOS_QUADRO.map(([estado, rotulo, fase_3]) => {
+      const daColuna = cartoes.filter((c) => c.estado === estado);
+      return { estado, rotulo, fase_3, total: daColuna.length, cartoes: daColuna };
+    }),
+  };
+}
+
 interface Opcoes {
   disjuntorAtingido?: boolean;
   respostaPost?: { status: number; corpo: unknown };
@@ -384,6 +426,7 @@ interface Opcoes {
   respostaRevisao?: { status: number; corpo: unknown };
   respostaConfigScore?: { status: number; corpo: unknown };
   respostaEnvioLote?: { status: number; corpo: unknown };
+  respostaMudancaEstado?: { status: number; corpo: unknown };
   lote?: unknown;
 }
 
@@ -403,6 +446,9 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
   const envios: string[] = [];
   const acoesLote: unknown[] = [];
   let loteAtual: unknown = opcoes.lote ?? LOTE_PREVIA;
+  const mudancas: unknown[] = [];
+  let cartoes: { id: string; estado: string; destinos: { estado: string }[] }[] = [CARTAO_FRIO, CARTAO_QUENTE, CARTAO_PROBLEMA];
+  const consultasQuadro: string[] = [];
   let andamento = opcoes.andamento ?? ANDAMENTO_PADRAO;
   let consulta = 0;
 
@@ -458,6 +504,24 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
       return json(route, 200, { id: "u1", nome: "Marcos", email: "m@x.com", papel: opcoes.papel ?? "vendedor" });
     }
     if (url.pathname === "/revisao/fase1") return json(route, 200, PLACAR);
+    if (url.pathname === "/crm/quadro") {
+      consultasQuadro.push(url.search);
+      const busca = url.searchParams.get("busca")?.toLowerCase();
+      return json(route, 200, montarQuadro(busca ? cartoes.filter((c) => JSON.stringify(c).toLowerCase().includes(busca)) : cartoes));
+    }
+    if (url.pathname === "/crm/funil") {
+      return json(route, 200, { prospects: 23, qualificados: 20, com_decisores: 14, reunioes: 0 });
+    }
+    const mudanca = url.pathname.match(/^\/empresas\/([^/]+)\/estado$/);
+    if (mudanca && req.method() === "POST") {
+      const corpo = req.postDataJSON();
+      mudancas.push({ id: mudanca[1], ...corpo });
+      if (opcoes.respostaMudancaEstado) {
+        return json(route, opcoes.respostaMudancaEstado.status, opcoes.respostaMudancaEstado.corpo);
+      }
+      cartoes = cartoes.map((c) => (c.id === mudanca[1] ? { ...c, estado: corpo.destino, destinos: [] } : c));
+      return json(route, 200, cartoes.find((c) => c.id === mudanca[1]) ?? { ...FICHA.empresa, estado: corpo.destino });
+    }
     if (url.pathname === "/lotes" && req.method() === "POST") {
       envios.push(req.headers()["content-type"] ?? "");
       const r = opcoes.respostaEnvioLote ?? { status: 201, corpo: LOTE_PREVIA };
@@ -517,5 +581,5 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
     return json(route, 404, { detail: "não simulado" });
   });
 
-  return { posts, confirmacoes, revisoes, configs, envios, acoesLote };
+  return { posts, confirmacoes, revisoes, configs, envios, acoesLote, mudancas, consultasQuadro };
 }

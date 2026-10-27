@@ -291,6 +291,7 @@ export interface Ficha {
   evidencias: Evidencia[];
   qualificacao: Qualificacao | null;
   decisores: Decisor[];
+  destinos?: DestinoEstado[];
   relatorio_disponivel: boolean;
   eventos: Evento[];
 }
@@ -457,4 +458,48 @@ export async function enviarArquivo<T>(caminho: string, campo: string, arquivo: 
     throw new ErroApi(r.status, detalhe ?? "Não foi possível enviar o arquivo.");
   }
   return (await r.json()) as T;
+}
+
+// --- CRM Kanban (Fase 2, §12.1 item 2) ---
+
+export interface DestinoEstado {
+  estado: EstadoProspect;
+  rotulo: string;
+  motivo_obrigatorio: boolean;
+}
+
+export interface CartaoCRM {
+  id: string;
+  nome: string;
+  dominio: string | null;
+  estado: EstadoProspect;
+  setor: string | null;
+  score: number | null;
+  faixa: FaixaScore | null;
+  rotulo_faixa: string | null;
+  nota_acessibilidade: number | null;
+  proximo_passo: string;
+  responsavel: string | null;
+  problema: string | null;
+  destinos: DestinoEstado[];
+}
+
+export interface ColunaCRM {
+  estado: EstadoProspect;
+  rotulo: string;
+  total: number;
+  fase_3: boolean;
+  cartoes: CartaoCRM[];
+}
+
+export interface QuadroCRM {
+  colunas: ColunaCRM[];
+  total: number;
+}
+
+export interface Funil {
+  prospects: number;
+  qualificados: number;
+  com_decisores: number;
+  reunioes: number;
 }

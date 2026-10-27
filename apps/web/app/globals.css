@@ -325,3 +325,44 @@ button.secundario { background: var(--surface); color: var(--primary); }
 .campos-lote select { width: 100%; font: inherit; padding: 0.45rem; border: 2px solid var(--border);
   border-radius: 8px; background: var(--surface); color: var(--text); }
 .situacao-linha.situacao-invalida, .situacao-linha.situacao-repetida { font-weight: 600; }
+
+/* CRM Kanban: a faixa do score está sempre escrita; a borda colorida só reforça (§2.8) */
+.filtros-crm { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end; }
+.filtros-crm select { font: inherit; padding: 0.45rem; border: 2px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text); }
+.filtros-crm .checagem-honestidade { margin: 0 0 0.6rem; }
+.quadro { display: flex; gap: 0.75rem; overflow-x: auto; padding: 0.5rem 0 1rem; align-items: flex-start; }
+.coluna-crm { flex: 0 0 17rem; background: var(--bg); border: 2px solid var(--border); border-radius: var(--radius);
+  padding: 0.6rem; }
+.coluna-crm.recolhida { flex-basis: 11rem; }
+.coluna-crm.alvo-ok { border-color: var(--primary); border-style: dashed; }
+.coluna-crm.alvo-nao { border-color: var(--danger); border-style: dotted; }
+.coluna-crm h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+.coluna-crm .contagem { color: var(--text-muted); font-weight: 400; }
+.cartoes { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.cartao-crm { background: var(--surface); border: 1px solid var(--border); border-left: 6px solid var(--border);
+  border-radius: 8px; padding: 0.6rem; }
+.cartao-crm[draggable="true"] { cursor: grab; }
+.cartao-crm.faixa-quente { border-left-color: var(--focus); }
+.cartao-crm.faixa-morno { border-left-color: var(--primary); }
+.cartao-crm h3 { font-size: 1rem; margin: 0; }
+.dados-cartao { margin: 0.4rem 0; display: grid; gap: 0.15rem; font-size: 0.92rem; }
+.dados-cartao div { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.dados-cartao dt { color: var(--text-muted); }
+.dados-cartao dt::after { content: ":"; }
+.dados-cartao dd { margin: 0; }
+.alerta-cartao { color: var(--danger); font-weight: 600; font-size: 0.92rem; margin: 0.25rem 0; }
+.dialogo { border: 2px solid var(--border); border-radius: var(--radius); padding: 1.25rem; max-width: 32rem;
+  width: calc(100% - 2rem); background: var(--surface); color: var(--text); }
+.dialogo::backdrop { background: rgb(0 0 0 / 0.45); }
+.dialogo textarea { width: 100%; font: inherit; padding: 0.5rem; border: 2px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text); }
+.destinos-mover { border: 0; padding: 0; margin: 0.5rem 0 1rem; display: grid; gap: 0.4rem; }
+.destinos-mover legend { font-weight: 600; margin-bottom: 0.25rem; }
+.destinos-mover .opcao { display: flex; gap: 0.5rem; align-items: center; }
+.destinos-mover label { display: inline; margin: 0; font-weight: 400; }
+.destinos-mover input[type="radio"] { width: 1.2rem; height: 1.2rem; margin: 0; }
+@media (max-width: 600px) {
+  .quadro { flex-direction: column; overflow-x: visible; }
+  .coluna-crm, .coluna-crm.recolhida { flex-basis: auto; width: 100%; }
+}
