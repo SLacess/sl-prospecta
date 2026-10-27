@@ -15,6 +15,7 @@ from app.artefatos import Armazenamento, chave_de, chave_relatorio, get_armazena
 from app.db import get_db
 from app.deps import get_current_user
 from app.models import Auditoria, Contato, Empresa, Evento, Papel, Usuario
+from app.routers.crm import DestinoOut, destinos_out
 from app.routers.prospeccao import (
     AuditoriaResumoOut,
     EmpresaOut,
@@ -141,6 +142,7 @@ class FichaOut(BaseModel):
     evidencias: list[EvidenciaOut]
     qualificacao: QualificacaoOut | None
     decisores: list[DecisorOut]
+    destinos: list[DestinoOut]  # mudanças manuais de estado permitidas (ADR 0011)
     relatorio_disponivel: bool
     eventos: list[EventoOut]
 
@@ -239,6 +241,7 @@ def ficha(
         evidencias=_evidencias(auditoria, empresa.dominio),
         qualificacao=ultima_qualificacao(db, empresa_id),
         decisores=_decisores(db, empresa_id, user.papel),
+        destinos=destinos_out(empresa.estado),
         relatorio_disponivel=analisada
         and armazenamento.existe(chave_relatorio(empresa_id, auditoria.id, "pdf")),
         eventos=[

@@ -20,9 +20,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.crm import problemas as problemas_das_empresas
 from app.db import get_db
 from app.deps import get_current_user, require_role
-from app.models import Contato, Empresa, EstadoProspect, Evento, Lote, Papel, Usuario
+from app.models import Contato, Empresa, EstadoProspect, Lote, Papel, Usuario
 from app.planilha import (
     CAMPOS,
     MAX_BYTES,
@@ -46,16 +47,6 @@ CUSTO_IA_POR_EMPRESA = Decimal("1.00")
 CREDITOS_POR_EMPRESA = 4
 PREVIA_LINHAS = 10
 EM_ANDAMENTO = {EstadoProspect.novo, EstadoProspect.pesquisando, EstadoProspect.auditando}
-EVENTOS_DE_PROBLEMA = {
-    "site_indisponivel": "site não pôde ser lido",
-    "auditoria_bloqueada": "auditoria bloqueada",
-    "pesquisa_falhou": "pesquisa falhou",
-    "analise_falhou": "análise falhou",
-    "mapeamento_falhou": "busca de decisores falhou",
-    "confirmacao_dominio": "aguarda confirmação do site",
-    "dominio_ja_cadastrado": "site já pertence a outra empresa",
-    "falha_enfileirar": "não entrou na fila",
-}
 ROTULO_STATUS = {
     "mapeando": "Identificando as colunas",
     "aguardando_confirmacao": "Aguardando sua confirmação",
@@ -296,27 +287,9 @@ def _lote_out(db: Session, lote: Lote) -> LoteOut:
     )
 
 
-def _problemas(db: Session, ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
-    """Último evento de cada empresa: se for de problema, o vendedor precisa olhar."""
-    if not ids:
-        return {}
-    ultimo = (
-        select(Evento.empresa_id, func.max(Evento.ocorrido_em).label("quando"))
-        .where(Evento.empresa_id.in_(ids))
-        .group_by(Evento.empresa_id)
-        .subquery()
-    )
-    linhas = db.execute(
-        select(Evento.empresa_id, Evento.tipo).join(
-            ultimo, (Evento.empresa_id == ultimo.c.empresa_id) & (Evento.ocorrido_em == ultimo.c.quando)
-        )
-    ).all()
-    return {e: EVENTOS_DE_PROBLEMA[t] for e, t in linhas if t in EVENTOS_DE_PROBLEMA}
-
-
 def _progresso(db: Session, lote: Lote) -> tuple[ProgressoOut, list[EmpresaLoteOut]]:
     empresas = db.scalars(select(Empresa).where(Empresa.lote_id == lote.id).order_by(Empresa.nome)).all()
-    problemas = _problemas(db, [e.id for e in empresas])
+    problemas = problemas_das_empresas(db, [e.id for e in empresas])
     grupos = {
         "na_fila": ("Na fila", lambda e: e.estado == EstadoProspect.novo),
         "pesquisando": ("Pesquisando", lambda e: e.estado == EstadoProspect.pesquisando),
