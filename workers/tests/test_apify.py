@@ -348,6 +348,35 @@ def test_sem_creditos_usa_a_busca_gratis_do_apollo_e_completa_o_nome_na_web(engi
     assert len(apify.chamadas[0]["emails"]) == 5  # só a Ana teve o nome confirmado
 
 
+class IAQueAnotaModelos(IAComNomes):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.modelos_busca: list[str] = []
+
+    async def com_busca_web(self, *, modelo, **kwargs):
+        self.modelos_busca.append(modelo)
+        return await super().com_busca_web(modelo=modelo, **kwargs)
+
+
+def test_busca_web_do_mapeador_usa_o_haiku_por_padrao(engine):
+    # ADR 0013: os resultados da busca são ~37 mil tokens; no Haiku custam 1/20 do Sonnet
+    assert WorkerConfig().model_web_search == "claude-haiku-5-5"
+    eid = _empresa(engine)
+    apollo = _apollo_sem_creditos()
+    apollo.pessoas = []
+    ia = IAQueAnotaModelos([], [])
+    _rodar(engine, apollo, ApifyFalso(), ia, eid)
+    assert ia.modelos_busca == ["claude-haiku-5-5"]
+
+
+def test_modelo_da_busca_web_vem_da_configuracao(engine):
+    eid = _empresa(engine)
+    nomes = [{"id": "apollo:a1", "nome": "Ana Souza", "fonte_url": FONTE, "linkedin_url": None}]
+    ia = IAQueAnotaModelos(ESCOLHA_APOLLO, nomes)
+    _rodar(engine, _apollo_sem_creditos(), ApifyFalso(), ia, eid, model_web_search="claude-sonnet-5-5")
+    assert ia.modelos_busca and set(ia.modelos_busca) == {"claude-sonnet-5-5"}
+
+
 def test_sem_ninguem_na_busca_do_apollo_cai_na_busca_generica(engine):
     eid = _empresa(engine)
     apollo = _apollo_sem_creditos()

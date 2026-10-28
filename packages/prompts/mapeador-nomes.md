@@ -1,7 +1,7 @@
 <!--
 agente: mapeador de decisores (nome completo em fontes públicas)
 versao: 1.0.0
-modelo_padrao: MODEL_ANALYSIS (claude-sonnet-5-5), esforço baixo, até DECISORES_MAX_WEB_SEARCHES buscas na web
+modelo_padrao: MODEL_WEB_SEARCH (claude-haiku-5-5), esforço baixo, até DECISORES_MAX_WEB_SEARCHES buscas na web
 esquema_saida: NomesCompletos em workers/slp_workers/agents/mapeador.py (JSON no texto final)
 referencias: ADR 0012 (caminho alternativo sem créditos do Apollo); CLAUDE.md regra 7 (nada de LinkedIn)
 -->

@@ -55,6 +55,8 @@ class WorkerConfig(BaseSettings):
     apollo_enrich_org: bool = True  # 1 crédito: porte, UF e cidade da empresa
     apollo_max_candidatos: int = 25  # pessoas trazidas da busca (sem crédito) para o Mapeador escolher
     decisores_max_web_searches: int = 3  # busca web em fontes públicas quando o Apollo não cobre as áreas
+    # Modelo que lê os resultados da busca web do Mapeador (~37 mil tokens por chamada; ADR 0013)
+    model_web_search: str = "claude-haiku-5-5"
     # Caminho alternativo sem Apollo (ADR 0012): nomes pela busca web, e-mail inferido e verificado no Apify
     apify_token: str = ""
     apify_base_url: str = "https://api.apify.com/v2"

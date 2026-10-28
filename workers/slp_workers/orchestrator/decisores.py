@@ -615,3 +615,9 @@ def ja_mapeada(engine: Engine, empresa_id: uuid.UUID) -> bool:
 def custo_estimado(maximo: int) -> tuple[int, Decimal]:
     """Créditos máximos por empresa e custo de IA aproximado (Haiku + busca web eventual), em reais."""
     return 1 + maximo, Decimal("0.15")
+
+
+def custo_estimado_alternativo() -> Decimal:
+    """Custo aproximado por empresa no caminho sem créditos do Apollo (ADR 0012/0013): até 2 buscas web
+    com o Haiku (~R$ 0,19 cada) e a verificação dos e-mails no Apify, em reais."""
+    return Decimal("0.40")

@@ -220,7 +220,7 @@ async def _mapear(alvo: list) -> int:
 
 
 def decisores(empresa_id: str | None, listar: bool) -> int:
-    from slp_workers.orchestrator.decisores import creditos_do_dia, custo_estimado
+    from slp_workers.orchestrator.decisores import creditos_do_dia, custo_estimado, custo_estimado_alternativo
 
     alvo = _para_mapear(empresa_id)
     for e in alvo:
@@ -237,6 +237,12 @@ def decisores(empresa_id: str | None, listar: bool) -> int:
             f"{len(alvo)} empresa(s) seriam mapeadas: até {creditos * len(alvo)} crédito(s) do Apollo "
             f"(hoje: {usados} de {config.apollo_daily_credit_cap}) e cerca de R$ {ia * len(alvo):.2f} de IA."
         )
+        if config.apify_token:
+            alternativo = custo_estimado_alternativo() * len(alvo)
+            print(
+                f"Se o Apollo estiver sem créditos: cerca de R$ {alternativo:.2f} "
+                "no caminho alternativo (Apify)."
+            )
         return 0
     return asyncio.run(_mapear(alvo))
 
