@@ -1,7 +1,7 @@
 <!--
 agente: mapeador de decisores (fontes públicas)
 versao: 1.0.0
-modelo_padrao: MODEL_ANALYSIS (claude-sonnet-5-5), esforço baixo, até DECISORES_MAX_WEB_SEARCHES buscas na web
+modelo_padrao: MODEL_WEB_SEARCH (claude-haiku-5-5), esforço baixo, até DECISORES_MAX_WEB_SEARCHES buscas na web
 esquema_saida: BuscaWebDecisores em workers/slp_workers/agents/mapeador.py (JSON no texto final)
 referencias: CONSTITUICAO §7.3 Etapa 4, §15.1 (LGPD, coleta mínima); CLAUDE.md regra 7 (nada de automação no LinkedIn)
 -->

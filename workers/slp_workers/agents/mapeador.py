@@ -160,7 +160,7 @@ async def buscar_na_web(
         f"Áreas que faltam: {', '.join(areas)}\nExemplos de cargos por área: {exemplos}"
     )
     resposta = await ia.com_busca_web(
-        modelo=config.model_analysis,
+        modelo=config.model_web_search,
         sistema=carregar_prompt("mapeador-web"),
         conteudo=conteudo,
         max_buscas=config.decisores_max_web_searches,
@@ -273,7 +273,7 @@ async def completar_nomes(
         f"Pessoas:\n{json.dumps(lista, ensure_ascii=False, indent=1)}"
     )
     resposta = await ia.com_busca_web(
-        modelo=config.model_analysis,
+        modelo=config.model_web_search,
         sistema=carregar_prompt("mapeador-nomes"),
         conteudo=conteudo,
         max_buscas=config.decisores_max_web_searches,
