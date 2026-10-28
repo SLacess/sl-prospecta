@@ -191,6 +191,7 @@ export interface ProspeccaoResposta {
 export interface Disjuntores {
   custo: { custo_hoje_brl: string; teto_brl: string; atingido: boolean; mensagem: string };
   apollo?: { creditos_hoje: number; teto: number; atingido: boolean; mensagem: string };
+  apify?: { gasto_hoje_usd: string; teto_usd: string; atingido: boolean; mensagem: string };
 }
 
 // --- Ficha do Prospect (Tarefa 5) ---

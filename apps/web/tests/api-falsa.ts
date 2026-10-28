@@ -258,6 +258,9 @@ export const FICHA = {
     { id: "c2", nome: "Carla Dias", cargo: "Diretora de Compliance", area: "Compliance", email: null,
       email_status: "sem_email", rotulo_email: "sem e-mail", linkedin_url: null,
       fonte: "web+apollo", fonte_url: "https://hospitalexemplo.com.br/diretoria" },
+    { id: "c3", nome: "Davi Reis", cargo: "Diretor de Compliance", area: "Compliance", email: "davi.reis@hospitalexemplo.com.br",
+      email_status: "valido", rotulo_email: "e-mail verificado", linkedin_url: null,
+      fonte: "web+apify", fonte_url: "https://hospitalexemplo.com.br/governanca" },
   ] as unknown[],
   destinos: [
     { estado: "MAPEANDO_DECISORES", rotulo: "Mapeando decisores", motivo_obrigatorio: false },
@@ -472,6 +475,7 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
             : "Custo de IA hoje: R$ 4,10 de R$ 30,00.",
         },
         apollo: { creditos_hoje: 8, teto: 60, atingido: false, mensagem: "Créditos do Apollo hoje: 8 de 60." },
+        apify: { gasto_hoje_usd: "0.07", teto_usd: "2", atingido: false, mensagem: "Apify hoje: US$ 0,07 de US$ 2,00." },
       });
     }
     if (url.pathname === "/prospeccao" && req.method() === "POST") {

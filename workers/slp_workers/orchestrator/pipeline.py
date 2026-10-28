@@ -41,11 +41,13 @@ from slp_workers.orchestrator.decisores import (
     CreditosEsgotados,
     DependenciasDecisores,
     Mapeamento,
+    OrcamentoApifyEsgotado,
     ja_mapeada,
 )
 from slp_workers.orchestrator.qualificacao import qualificar_e_gravar
 from slp_workers.orchestrator.relatorio import gerar_com_evento
 from slp_workers.settings import WorkerConfig, get_config
+from slp_workers.web.apify import ClienteApify, ErroApify
 from slp_workers.web.apollo import ClienteApollo, ErroApollo
 from slp_workers.web.emails import ResolvedorMX, tem_mx
 from slp_workers.web.fetcher import LeitorSite, LeituraBloqueada, Pagina, escolher_paginas
@@ -62,6 +64,16 @@ MAPEANDO_DECISORES = "MAPEANDO_DECISORES"
 MAX_PRINTS_ANALISE = 3
 
 EnfileirarAuditoria = Callable[[uuid.UUID], Awaitable[bool]]
+
+
+def cliente_apify(config: WorkerConfig) -> ClienteApify:
+    return ClienteApify(
+        config.apify_token,
+        ator=config.apify_verificador,
+        base_url=config.apify_base_url,
+        timeout_s=config.apify_timeout_s,
+        preco_por_email_usd=config.apify_preco_por_email_usd,
+    )
 
 
 def _enfileirador_redis(redis: Any) -> EnfileirarAuditoria:
@@ -112,6 +124,7 @@ class Dependencias:
     armazenamento: Armazenamento | None = None
     apollo: ClienteApollo | None = None
     resolvedor_mx: ResolvedorMX = tem_mx
+    apify: ClienteApify | None = None
 
     @classmethod
     def do_ctx(cls, ctx: dict) -> "Dependencias":
@@ -131,6 +144,7 @@ class Dependencias:
                 config.apollo_api_key, base_url=config.apollo_base_url, timeout_s=config.apollo_timeout_s
             ),
             resolvedor_mx=ctx.get("resolvedor_mx", tem_mx),
+            apify=ctx.get("apify") or cliente_apify(config),
         )
 
 
@@ -415,6 +429,7 @@ class Pesquisa:
             config=self.deps.config,
             apollo=self.deps.apollo,
             resolvedor_mx=self.deps.resolvedor_mx,
+            apify=self.deps.apify,
         )
         return await Mapeamento(deps, self.empresa_id).executar()
 
@@ -517,7 +532,15 @@ async def processar_empresa(ctx: dict, empresa_id: str) -> str:
             teto=exc.teto,
         )
         raise Retry(defer=segundos_ate_reabrir()) from exc
-    except ErroApollo as exc:
+    except OrcamentoApifyEsgotado as exc:
+        await pesquisa.evento(
+            "fila_pausada_apify",
+            "Teto diário do Apify atingido: os decisores são buscados quando o teto reabrir.",
+            gasto_usd=str(exc.usado_usd),
+            teto_usd=str(exc.teto_usd),
+        )
+        raise Retry(defer=segundos_ate_reabrir()) from exc
+    except (ErroApollo, ErroApify) as exc:
         if exc.transitorio and ctx.get("job_try", 1) < MAX_TENTATIVAS_TRANSITORIAS:
             raise Retry(defer=300) from exc
         await pesquisa.evento(

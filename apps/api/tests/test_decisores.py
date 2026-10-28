@@ -53,3 +53,16 @@ def test_disjuntor_do_apollo_soma_os_creditos_do_dia(client, db, vendedor_header
     apollo = client.get("/governanca/disjuntores", headers=vendedor_headers).json()["apollo"]
     assert apollo["atingido"] is True
     assert "recomeça amanhã" in apollo["mensagem"]
+
+
+def test_disjuntor_do_apify_converte_o_gasto_para_dolar(client, db, vendedor_headers, monkeypatch):
+    from decimal import Decimal
+
+    monkeypatch.setattr(get_settings(), "apify_daily_budget_usd", Decimal("2"))
+    monkeypatch.setattr(get_settings(), "usd_brl_rate", Decimal("5.50"))
+    db.add(AcaoAgente(agente="mapeador.apify", entrada_hash="x", saida_json={}, custo=Decimal("0.55")))
+    db.add(AcaoAgente(agente="mapeador", entrada_hash="y", saida_json={}, custo=Decimal("9")))  # IA não entra
+    db.commit()
+    apify = client.get("/governanca/disjuntores", headers=vendedor_headers).json()["apify"]
+    assert (apify["gasto_hoje_usd"], apify["atingido"]) == ("0.10", False)
+    assert apify["mensagem"] == "Apify hoje: US$ 0,10 de US$ 2,00."

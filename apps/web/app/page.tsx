@@ -58,6 +58,7 @@ export default function PainelProspeccao() {
   const [acompanhando, setAcompanhando] = useState(false);
   const [disjuntor, setDisjuntor] = useState<Disjuntores["custo"] | null>(null);
   const [apollo, setApollo] = useState<Disjuntores["apollo"] | null>(null);
+  const [apify, setApify] = useState<Disjuntores["apify"] | null>(null);
   const [funil, setFunil] = useState<Funil | null>(null);
 
   const campoRef = useRef<HTMLInputElement>(null);
@@ -68,6 +69,7 @@ export default function PainelProspeccao() {
       const d = await apiFetch<Disjuntores>("/governanca/disjuntores");
       setDisjuntor(d.custo);
       setApollo(d.apollo ?? null);
+      setApify(d.apify ?? null);
     } catch {
       /* o aviso é complementar; erros de rede aparecem no envio */
     }
@@ -222,6 +224,7 @@ export default function PainelProspeccao() {
         </div>
         {disjuntor && !disjuntor.atingido && <p className="hint custo-dia">{disjuntor.mensagem}</p>}
         {apollo && <p className="hint creditos-dia">{apollo.mensagem}</p>}
+        {apify && <p className="hint apify-dia">{apify.mensagem}</p>}
       </section>
 
       <EnvioPlanilha />

@@ -16,7 +16,7 @@ test("ficha mostra os decisores com a situação do e-mail em texto", async ({ p
   await prepararPainel(page);
   await page.goto(URL_FICHA);
   const tabela = page.getByRole("table", { name: "Decisores encontrados, um por área" });
-  await expect(tabela.locator("tbody tr")).toHaveCount(2);
+  await expect(tabela.locator("tbody tr")).toHaveCount(3);
   const ana = tabela.getByRole("row", { name: /Ana Souza/ });
   await expect(ana).toContainText("TI");
   await expect(ana).toContainText("ana@hospitalexemplo.com.br");
@@ -31,6 +31,8 @@ test("ficha mostra os decisores com a situação do e-mail em texto", async ({ p
     "href",
     "https://hospitalexemplo.com.br/diretoria",
   );
+  const davi = tabela.getByRole("row", { name: /Davi Reis/ });
+  await expect(davi).toContainText("e-mail verificado no Apify");
   await semViolacoes(page);
 });
 
@@ -54,4 +56,5 @@ test("painel mostra os créditos do Apollo do dia", async ({ page }) => {
   await prepararPainel(page);
   await page.goto("/");
   await expect(page.locator(".creditos-dia")).toHaveText("Créditos do Apollo hoje: 8 de 60.");
+  await expect(page.locator(".apify-dia")).toHaveText("Apify hoje: US$ 0,07 de US$ 2,00.");
 });

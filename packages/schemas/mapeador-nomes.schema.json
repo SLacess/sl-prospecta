@@ -1,0 +1,58 @@
+{
+  "$defs": {
+    "NomeCompleto": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "nome": {
+          "title": "Nome",
+          "type": "string"
+        },
+        "fonte_url": {
+          "title": "Fonte Url",
+          "type": "string"
+        },
+        "linkedin_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linkedin Url"
+        }
+      },
+      "required": [
+        "id",
+        "nome",
+        "fonte_url"
+      ],
+      "title": "NomeCompleto",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "pessoas": {
+      "items": {
+        "$ref": "#/$defs/NomeCompleto"
+      },
+      "title": "Pessoas",
+      "type": "array"
+    },
+    "raciocinio_resumido": {
+      "title": "Raciocinio Resumido",
+      "type": "string"
+    }
+  },
+  "required": [
+    "pessoas",
+    "raciocinio_resumido"
+  ],
+  "title": "NomesCompletos",
+  "type": "object"
+}
