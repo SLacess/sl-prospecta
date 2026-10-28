@@ -1,5 +1,16 @@
 import type { Decisor } from "@/lib/api";
 
+const ROTULO_FONTE: Record<string, string> = {
+  apollo: "Apollo",
+  "web+apollo": "Apollo",
+  "web+apify": "Apify",
+  planilha: "Planilha",
+};
+/** Quem verificou o e-mail quando o nome veio de fonte pública (ADR 0012). */
+const ROTULO_EMAIL_POR: Record<string, string> = {
+  "web+apify": "e-mail verificado no Apify",
+};
+
 function host(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -58,7 +69,10 @@ export function DecisoresDaEmpresa({ decisores }: { decisores: Decisor[] }) {
                         <span className="visually-hidden"> (fonte pública, abre em nova aba)</span>
                       </a>
                     ) : (
-                      "Apollo"
+                      ROTULO_FONTE[d.fonte] ?? d.fonte
+                    )}
+                    {d.fonte_url && d.fonte !== "web+apollo" && ROTULO_EMAIL_POR[d.fonte] && (
+                      <span className="hint"> · {ROTULO_EMAIL_POR[d.fonte]}</span>
                     )}
                   </td>
                 </tr>

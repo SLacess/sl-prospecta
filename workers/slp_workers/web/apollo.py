@@ -28,6 +28,11 @@ class ApolloNaoConfigurado(ErroApollo):
     pass
 
 
+class ApolloSemCreditos(ErroApollo):
+    """O plano do Apollo acabou os créditos do ciclo (`BILLING.LIMIT.CREDITS_EXHAUSTED`). A busca de pessoas,
+    que não gasta crédito, continua funcionando; o Mapeador troca para o caminho alternativo (ADR 0012)."""
+
+
 @dataclass
 class OrganizacaoApollo:
     colaboradores: int | None
@@ -61,6 +66,16 @@ class PessoaEnriquecida:
     org_dominio: str | None = None  # organization.primary_domain da pessoa
     org_site: str | None = None  # organization.website_url da pessoa
     bruto: dict[str, Any] = field(default_factory=dict, repr=False)
+
+
+def _sem_creditos(r: httpx.Response) -> bool:
+    try:
+        corpo = r.json()
+    except ValueError:
+        return False
+    codigo = ((corpo.get("error_details") or {}).get("code") or "") if isinstance(corpo, dict) else ""
+    texto = str(corpo.get("error") or "") if isinstance(corpo, dict) else ""
+    return "CREDITS" in codigo.upper() or "insufficient credits" in texto.lower()
 
 
 class ClienteApollo:
@@ -103,6 +118,8 @@ class ClienteApollo:
             raise ErroApollo(f"Apollo indisponível ({r.status_code})", transitorio=True)
         if r.status_code in (401, 403):
             raise ErroApollo(f"Apollo recusou a chave ({r.status_code}); confira a APOLLO_API_KEY e o plano")
+        if r.status_code in (402, 422) and _sem_creditos(r):
+            raise ApolloSemCreditos("o plano do Apollo está sem créditos neste ciclo")
         if r.status_code >= 400:
             raise ErroApollo(f"Apollo recusou a chamada ({r.status_code})")
         try:

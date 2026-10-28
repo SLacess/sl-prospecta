@@ -11,3 +11,4 @@ Esquemas publicados (gerados dos modelos Pydantic; os testes do worker falham se
 - `mapeador.schema.json` — escolha do Mapeador de decisores (§7.3, Etapa 4): até 3 pessoas, uma por área.
 - `mapeador-web.schema.json` — pessoas encontradas em fontes públicas pela busca web (nunca o LinkedIn).
 - `mapeador-colunas.schema.json` — colunas de uma planilha de lote identificadas pela IA (§7.2, entrada 2).
+- `mapeador-nomes.schema.json` — nomes completos, em fontes públicas, de quem a busca grátis do Apollo achou (ADR 0012).

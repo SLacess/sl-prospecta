@@ -25,7 +25,7 @@ from urllib.parse import urlsplit
 
 from sqlalchemy import Engine, func, or_, select, update
 
-from slp_workers.agents import mapeador
+from slp_workers.agents import mapeador, padroes_email
 from slp_workers.agents.mapeador import Candidato, Escolha
 from slp_workers.db import (
     acoes_agentes,
@@ -41,7 +41,8 @@ from slp_workers.llm import ClienteIA, Consumo
 from slp_workers.orchestrator.budget import inicio_do_dia
 from slp_workers.orchestrator.qualificacao import qualificar_e_gravar
 from slp_workers.settings import WorkerConfig
-from slp_workers.web.apollo import ClienteApollo, PessoaEnriquecida
+from slp_workers.web.apify import ClienteApify, Verificacao
+from slp_workers.web.apollo import ApolloSemCreditos, ClienteApollo, PessoaEnriquecida
 from slp_workers.web.dominio import pertence_ao_dominio
 from slp_workers.web.emails import ResolvedorMX, tem_mx, validar_email
 
@@ -105,6 +106,24 @@ def uf_do_estado(estado: str | None, pais: str | None) -> str | None:
     return UF_POR_ESTADO.get(texto)
 
 
+class OrcamentoApifyEsgotado(Exception):
+    def __init__(self, usado_usd: Decimal, teto_usd: Decimal) -> None:
+        super().__init__(f"teto diário do Apify atingido (US$ {usado_usd:.2f} de US$ {teto_usd:.2f})")
+        self.usado_usd = usado_usd
+        self.teto_usd = teto_usd
+
+
+def gasto_apify_do_dia(engine: Engine, usd_brl: Decimal, agora: datetime | None = None) -> Decimal:
+    """Gasto do dia com o Apify em US$ (as ações guardam o custo em reais, como as de IA)."""
+    with engine.connect() as conn:
+        total = conn.scalar(
+            select(func.coalesce(func.sum(acoes_agentes.c.custo), 0)).where(
+                acoes_agentes.c.agente == "mapeador.apify", acoes_agentes.c.criado_em >= inicio_do_dia(agora)
+            )
+        )
+    return (Decimal(str(total or 0)) / usd_brl).quantize(Decimal("0.0001"))
+
+
 def creditos_do_dia(engine: Engine, agora: datetime | None = None) -> int:
     with engine.connect() as conn:
         total = conn.scalar(
@@ -122,12 +141,14 @@ class DependenciasDecisores:
     config: WorkerConfig
     apollo: ClienteApollo
     resolvedor_mx: ResolvedorMX = tem_mx
+    apify: ClienteApify | None = None
 
 
 @dataclass
 class Mapeamento:
     deps: DependenciasDecisores
     empresa_id: uuid.UUID
+    _escolhidas_apollo: list[tuple[Candidato, Escolha]] | None = None
 
     # --- registro ---------------------------------------------------------
 
@@ -307,6 +328,23 @@ class Mapeamento:
                 )
         return escolhidas
 
+    async def _completar_nomes(
+        self, empresa: Any, escolhidas: list[tuple[Candidato, Escolha]]
+    ) -> list[tuple[Candidato, Escolha]]:
+        """Nome completo, em fonte pública, de quem a busca grátis do Apollo achou (ADR 0012)."""
+        por_id = {c.id: e for c, e in escolhidas}
+        completos, resposta, descartados = await mapeador.completar_nomes(
+            self.deps.ia, self.deps.config, empresa.nome, empresa.dominio, [c for c, _ in escolhidas]
+        )
+        await self.acao(
+            "mapeador.web",
+            empresa.dominio,
+            {"nomes_confirmados": len(completos), "pedidos": len(escolhidas), "descartados": descartados},
+            None,
+            consumo=resposta.consumo,
+        )
+        return [(c, por_id[c.id]) for c in completos]
+
     async def _registrar_contato(self, empresa: Any, c: Candidato, e: Escolha) -> str | None:
         """Busca o e-mail no Apollo, valida e grava. Devolve o status do e-mail ou None se não gravou."""
         p: PessoaEnriquecida | None
@@ -358,69 +396,129 @@ class Mapeamento:
             await asyncio.to_thread(self._gravar_contato, valores)
         return validado.status
 
-    # --- fluxo ------------------------------------------------------------
-
-    async def executar(self) -> str:
-        empresa = await asyncio.to_thread(self._empresa)
-        if empresa is None or empresa.estado != MAPEANDO_DECISORES or not empresa.dominio:
-            return "ignorado"
-        if not self.deps.apollo.configurado:
-            await self.evento(
-                "apollo_nao_configurado",
-                "O Apollo não está configurado (APOLLO_API_KEY): o mapeamento de decisores espera.",
+    async def _caminho_alternativo(
+        self, empresa: Any, dec: dict, prioridade: list[str], maximo: int, sem_apollo: str
+    ) -> list[tuple[str, str]] | str:
+        """Sem Apollo (sem chave ou sem créditos): nomes em fontes públicas, e-mail inferido do padrão da
+        empresa e verificado por SMTP no Apify (ADR 0012). Devolve os resultados ou o código de espera."""
+        apify = self.deps.apify
+        if apify is None or not apify.configurado:
+            tipo = "apollo_nao_configurado" if sem_apollo == "nao_configurado" else "apollo_sem_creditos"
+            motivo = (
+                "O Apollo não está configurado (APOLLO_API_KEY)"
+                if sem_apollo == "nao_configurado"
+                else "O plano do Apollo está sem créditos neste ciclo"
             )
-            return "apollo_nao_configurado"
-        if await asyncio.to_thread(self._dominio_suprimido, empresa.dominio):
             await self.evento(
-                "dominio_suprimido", "O domínio está na lista de supressão: nenhum decisor buscado."
+                tipo, f"{motivo} e o Apify não está configurado: o mapeamento de decisores espera."
             )
-            return "dominio_suprimido"
+            return tipo
+        teto = self.deps.config.apify_daily_budget_usd
+        gasto = await asyncio.to_thread(gasto_apify_do_dia, self.deps.engine, self.deps.config.usd_brl_rate)
+        if gasto + apify.custo_usd(maximo * padroes_email.MAX_CANDIDATOS) > teto:
+            raise OrcamentoApifyEsgotado(gasto, teto)
 
-        cfg = await asyncio.to_thread(self._config)
-        dec = cfg.get("decisores") or {}
-        maximo = int(dec.get("max_contatos") or 3)
-        teto = self.deps.config.apollo_daily_credit_cap
-        usados = await asyncio.to_thread(creditos_do_dia, self.deps.engine)
-        if usados + 1 + maximo > teto:
-            raise CreditosEsgotados(usados, teto)
-
-        await self.evento("mapeando_decisores", "Procurando os decisores no Apollo.")
-        if self.deps.config.apollo_enrich_org and not empresa.porte:
-            await self._enriquecer_empresa(empresa)
-            empresa = await asyncio.to_thread(self._empresa)
-
-        areas_icp = [a for a in ((cfg.get("icp") or {}).get("areas_decisoras") or mapeador.AREAS)]
-        prioridade_setor = (dec.get("prioridade_por_setor") or mapeador.PRIORIDADE_POR_SETOR_PADRAO).get(
-            empresa.setor or "outro"
+        await self.evento(
+            "buscando_decisores_alternativo",
+            (
+                "Apollo sem créditos neste ciclo: "
+                if sem_apollo == "sem_creditos"
+                else "Apollo não configurado: "
+            )
+            + "procurando decisores em fontes públicas (sem LinkedIn) e verificando o e-mail no Apify.",
         )
-        prioridade = [a for a in (prioridade_setor or mapeador.PRIORIDADE_PADRAO) if a in areas_icp]
-
-        escolhidas = await self._escolher_no_apollo(empresa, dec, prioridade, maximo)
-        if len(escolhidas) < maximo:
-            cobertas = {e.area for _, e in escolhidas}
-            faltam = [a for a in prioridade if a not in cobertas][: maximo - len(escolhidas)]
-            if faltam:
-                await self.evento(
-                    "buscando_decisores_web",
-                    f"Procurando em fontes públicas decisores de {', '.join(faltam)} (sem LinkedIn).",
-                )
-                escolhidas += await self._completar_na_web(empresa, dec, faltam)
-
+        escolhidas: list[tuple[Candidato, Escolha]] = []
+        if sem_apollo == "sem_creditos":
+            # A busca de pessoas do Apollo não gasta crédito: diz quem ocupa cada cargo (nome abreviado)
+            do_apollo = self._escolhidas_apollo
+            if do_apollo is None:
+                do_apollo = await self._escolher_no_apollo(empresa, dec, prioridade, maximo)
+            if do_apollo:
+                escolhidas = await self._completar_nomes(empresa, do_apollo)
+        if not escolhidas:
+            escolhidas = await self._completar_na_web(empresa, dec, prioridade[:maximo])
+        pessoas = [(c, e, padroes_email.candidatos(c.nome, empresa.dominio)) for c, e in escolhidas[:maximo]]
+        todos = [email for _, _, lista in pessoas for email in lista]
+        verificacoes: dict[str, Verificacao] = await apify.verificar(todos) if todos else {}
+        if todos:
+            # Sem os endereços no registro: só contagens e situações (coleta mínima)
+            custo_usd = apify.custo_usd(len(set(todos)))
+            custo_brl = (custo_usd * self.deps.config.usd_brl_rate).quantize(Decimal("0.0001"))
+            await self.acao(
+                "mapeador.apify",
+                empresa.dominio,
+                {
+                    "verificados": len(verificacoes),
+                    "entregaveis": sum(1 for v in verificacoes.values() if v.entregavel),
+                    "catch_all": sum(1 for v in verificacoes.values() if v.catch_all),
+                },
+                None,
+                consumo=Consumo(modelo="apify:verificador", custo_brl=custo_brl),
+            )
         resultados: list[tuple[str, str]] = []
-        for c, e in escolhidas[:maximo]:
-            status = await self._registrar_contato(empresa, c, e)
-            if status:
-                resultados.append((e.area, status))
+        for c, e, lista in pessoas:
+            entregavel = next((m for m in lista if (v := verificacoes.get(m)) and v.entregavel), None)
+            duvidoso = next((m for m in lista if (v := verificacoes.get(m)) and v.smtp_valido), None)
+            if entregavel:
+                email, status = entregavel, "valido"
+            elif duvidoso:
+                email, status = duvidoso, "nao_verificado"  # catch-all ou incerto: não serve para envio
+            else:
+                email, status = None, "sem_email"
+            if email and await asyncio.to_thread(self._email_suprimido, email):
+                await self.evento(
+                    "contato_suprimido",
+                    f"Um decisor de {e.area} está na lista de supressão e não foi registrado.",
+                )
+                continue
+            valores = {
+                "nome": c.nome[:200],
+                "cargo": (c.cargo or "")[:200] or None,
+                "area": e.area,
+                "email": email,
+                "email_status": status,
+                "linkedin_url": c.linkedin_url,
+                "fonte": "web+apify",
+                "fonte_url": c.fonte_url,
+                "apollo_id": None,
+            }
+            existente = await asyncio.to_thread(self._existente, None, email, c.nome)
+            if existente is not None:
+                await asyncio.to_thread(self._atualizar_contato, existente, valores)
+            else:
+                await asyncio.to_thread(self._gravar_contato, valores)
+            resultados.append((e.area, status))
+        return resultados
 
-        validos = sum(1 for _, s in resultados if s == "valido")
+    def _validos_salvos(self) -> int:
+        with self.deps.engine.connect() as conn:
+            return int(
+                conn.scalar(
+                    select(func.count()).where(
+                        contatos.c.empresa_id == self.empresa_id,
+                        contatos.c.email_status == "valido",
+                        contatos.c.opt_out.is_(False),
+                    )
+                )
+                or 0
+            )
+
+    async def _concluir(self, resultados: list[tuple[str, str]]) -> str:
+        # Conta os contatos válidos já salvos (de rodadas anteriores ou do Apollo), não só os desta rodada
+        validos = await asyncio.to_thread(self._validos_salvos)
         await asyncio.to_thread(qualificar_e_gravar, self.deps.engine, self.empresa_id)
         if validos:
             await asyncio.to_thread(self._transitar, MAPEANDO_DECISORES, PREPARANDO_ABORDAGEM)
             detalhes = "; ".join(f"{a} ({ROTULO_STATUS[s]})" for a, s in resultados)
+            texto = (
+                f"{len(resultados)} decisor(es) encontrado(s): {detalhes}. "
+                if resultados
+                else f"Nenhum decisor novo nesta busca; a empresa já tem {validos} contato(s) "
+                "com e-mail verificado. "
+            )
             await self.evento(
                 "decisores_encontrados",
-                f"{len(resultados)} decisor(es) encontrado(s): {detalhes}. "
-                "A empresa segue para preparar a abordagem.",
+                texto + "A empresa segue para preparar a abordagem.",
                 validos=validos,
                 areas=[a for a, _ in resultados],
             )
@@ -436,6 +534,70 @@ class Mapeamento:
             areas=[a for a, _ in resultados],
         )
         return "sem_decisores"
+
+    async def _caminho_apollo(
+        self, empresa: Any, dec: dict, prioridade: list[str], maximo: int
+    ) -> list[tuple[str, str]]:
+        await self.evento("mapeando_decisores", "Procurando os decisores no Apollo.")
+        if self.deps.config.apollo_enrich_org and not empresa.porte:
+            await self._enriquecer_empresa(empresa)
+            empresa = await asyncio.to_thread(self._empresa)
+
+        escolhidas = await self._escolher_no_apollo(empresa, dec, prioridade, maximo)
+        self._escolhidas_apollo = escolhidas  # se faltar crédito adiante, o caminho alternativo reaproveita
+        if len(escolhidas) < maximo:
+            cobertas = {e.area for _, e in escolhidas}
+            faltam = [a for a in prioridade if a not in cobertas][: maximo - len(escolhidas)]
+            if faltam:
+                await self.evento(
+                    "buscando_decisores_web",
+                    f"Procurando em fontes públicas decisores de {', '.join(faltam)} (sem LinkedIn).",
+                )
+                escolhidas += await self._completar_na_web(empresa, dec, faltam)
+
+        resultados: list[tuple[str, str]] = []
+        for c, e in escolhidas[:maximo]:
+            status = await self._registrar_contato(empresa, c, e)
+            if status:
+                resultados.append((e.area, status))
+        return resultados
+
+    # --- fluxo ------------------------------------------------------------
+
+    async def executar(self) -> str:
+        empresa = await asyncio.to_thread(self._empresa)
+        if empresa is None or empresa.estado != MAPEANDO_DECISORES or not empresa.dominio:
+            return "ignorado"
+        if await asyncio.to_thread(self._dominio_suprimido, empresa.dominio):
+            await self.evento(
+                "dominio_suprimido", "O domínio está na lista de supressão: nenhum decisor buscado."
+            )
+            return "dominio_suprimido"
+
+        cfg = await asyncio.to_thread(self._config)
+        dec = cfg.get("decisores") or {}
+        maximo = int(dec.get("max_contatos") or 3)
+        areas_icp = [a for a in ((cfg.get("icp") or {}).get("areas_decisoras") or mapeador.AREAS)]
+        prioridade_setor = (dec.get("prioridade_por_setor") or mapeador.PRIORIDADE_POR_SETOR_PADRAO).get(
+            empresa.setor or "outro"
+        )
+        prioridade = [a for a in (prioridade_setor or mapeador.PRIORIDADE_PADRAO) if a in areas_icp]
+
+        if not self.deps.apollo.configurado:
+            alternativo = await self._caminho_alternativo(empresa, dec, prioridade, maximo, "nao_configurado")
+            return alternativo if isinstance(alternativo, str) else await self._concluir(alternativo)
+
+        teto = self.deps.config.apollo_daily_credit_cap
+        usados = await asyncio.to_thread(creditos_do_dia, self.deps.engine)
+        if usados + 1 + maximo > teto:
+            raise CreditosEsgotados(usados, teto)
+
+        try:
+            resultados = await self._caminho_apollo(empresa, dec, prioridade, maximo)
+        except ApolloSemCreditos:
+            alternativo = await self._caminho_alternativo(empresa, dec, prioridade, maximo, "sem_creditos")
+            return alternativo if isinstance(alternativo, str) else await self._concluir(alternativo)
+        return await self._concluir(resultados)
 
 
 def ja_mapeada(engine: Engine, empresa_id: uuid.UUID) -> bool:

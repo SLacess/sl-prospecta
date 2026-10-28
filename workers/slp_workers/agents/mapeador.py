@@ -190,6 +190,104 @@ def candidatos_da_web(pessoas: list[PessoaWeb]) -> list[Candidato]:
     ]
 
 
+# --- Nome completo de quem o Apollo achou (sem créditos, ADR 0012) --------------
+
+
+class NomeCompleto(BaseModel):
+    id: str
+    nome: str
+    fonte_url: str
+    linkedin_url: str | None = None
+
+
+class NomesCompletos(BaseModel):
+    pessoas: list[NomeCompleto]
+    raciocinio_resumido: str
+
+
+def _partes_apollo(c: Candidato) -> tuple[str, str | None]:
+    """Primeiro nome e sobrenome ofuscado ("S***a") de um candidato da busca grátis do Apollo."""
+    partes = c.nome.split()
+    ofuscado = partes[-1] if len(partes) > 1 and "*" in partes[-1] else None
+    return partes[0], ofuscado
+
+
+def nome_confere(nome: str, primeiro: str, ofuscado: str | None) -> bool:
+    """Mesmo primeiro nome e um sobrenome que começa e termina com as letras da abreviação do Apollo."""
+    partes = [_sem_acento(p) for p in nome.split()]
+    if len(partes) < 2 or partes[0] != _sem_acento(primeiro):
+        return False
+    letras = (ofuscado or "").replace("*", "")
+    if len(letras) < 2:
+        return True
+    ini, fim = _sem_acento(letras[0]), _sem_acento(letras[-1])
+    return any(p.startswith(ini) and p.endswith(fim) for p in partes[1:])
+
+
+def validar_nomes(
+    resposta: NomesCompletos, candidatos: list[Candidato], urls_consultadas: list[str]
+) -> tuple[list[Candidato], int]:
+    por_id = {c.id: c for c in candidatos}
+    vistas = set(urls_consultadas)
+    completos: list[Candidato] = []
+    descartados = 0
+    for p in resposta.pessoas:
+        c = por_id.get(p.id)
+        primeiro, ofuscado = _partes_apollo(c) if c else ("", None)
+        if (
+            c is None
+            or p.fonte_url not in vistas
+            or _eh_linkedin(p.fonte_url)
+            or not nome_confere(p.nome, primeiro, ofuscado)
+            or any(x.id == c.id for x in completos)
+        ):
+            descartados += 1
+            continue
+        linkedin = p.linkedin_url if p.linkedin_url in vistas and _eh_linkedin(p.linkedin_url or "") else None
+        completos.append(
+            Candidato(
+                id=c.id,
+                nome=" ".join(p.nome.split()),
+                cargo=c.cargo,
+                origem="web",
+                apollo_id=c.apollo_id,
+                area_sugerida=c.area_sugerida,
+                fonte_url=p.fonte_url,
+                linkedin_url=linkedin,
+            )
+        )
+    return completos, descartados
+
+
+async def completar_nomes(
+    ia: ClienteIA, config: WorkerConfig, nome_empresa: str, dominio: str, candidatos: list[Candidato]
+) -> tuple[list[Candidato], RespostaBusca, int]:
+    lista = []
+    for c in candidatos:
+        primeiro, ofuscado = _partes_apollo(c)
+        lista.append(
+            {"id": c.id, "primeiro_nome": primeiro, "sobrenome_abreviado": ofuscado, "cargo": c.cargo}
+        )
+    conteudo = (
+        f"Organização: {nome_empresa}\nSite oficial: {dominio}\n\n"
+        f"Pessoas:\n{json.dumps(lista, ensure_ascii=False, indent=1)}"
+    )
+    resposta = await ia.com_busca_web(
+        modelo=config.model_analysis,
+        sistema=carregar_prompt("mapeador-nomes"),
+        conteudo=conteudo,
+        max_buscas=config.decisores_max_web_searches,
+        effort="low",
+        max_tokens=4000,
+    )
+    try:
+        nomes = NomesCompletos.model_validate(extrair_json(resposta.texto))
+    except ValueError:
+        nomes = NomesCompletos(pessoas=[], raciocinio_resumido="A busca não confirmou nomes.")
+    completos, descartados = validar_nomes(nomes, candidatos, resposta.urls_consultadas)
+    return completos, resposta, descartados
+
+
 # --- Escolha -----------------------------------------------------------------
 
 

@@ -177,7 +177,14 @@ def _para_mapear(empresa_id: str | None) -> list:
 
 async def _mapear(alvo: list) -> int:
     from slp_workers.llm import ClienteAnthropic
-    from slp_workers.orchestrator.decisores import CreditosEsgotados, DependenciasDecisores, Mapeamento
+    from slp_workers.orchestrator.decisores import (
+        CreditosEsgotados,
+        DependenciasDecisores,
+        Mapeamento,
+        OrcamentoApifyEsgotado,
+    )
+    from slp_workers.orchestrator.pipeline import cliente_apify
+    from slp_workers.web.apify import ErroApify
     from slp_workers.web.apollo import ClienteApollo, ErroApollo
 
     config = get_config()
@@ -189,21 +196,22 @@ async def _mapear(alvo: list) -> int:
         apollo=ClienteApollo(
             config.apollo_api_key, base_url=config.apollo_base_url, timeout_s=config.apollo_timeout_s
         ),
+        apify=cliente_apify(config),
     )
     feitas = 0
     try:
         for e in alvo:
             try:
                 r = await Mapeamento(deps, e.id).executar()
-            except CreditosEsgotados as exc:
+            except (CreditosEsgotados, OrcamentoApifyEsgotado) as exc:
                 print(f"Parado: {exc}. As demais ficam para amanhã.")
                 break
-            except ErroApollo as exc:
-                print(f"erro do Apollo  {e.nome}: {exc}")
+            except (ErroApollo, ErroApify) as exc:
+                print(f"erro do Apollo/Apify  {e.nome}: {exc}")
                 continue
             feitas += r in ("decisores_mapeados", "sem_decisores")
             print(f"{r:<22} {e.nome}")
-            if r == "apollo_nao_configurado":
+            if r in ("apollo_nao_configurado", "apollo_sem_creditos"):
                 break
     finally:
         engine.dispose()

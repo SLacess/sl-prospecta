@@ -55,6 +55,13 @@ class WorkerConfig(BaseSettings):
     apollo_enrich_org: bool = True  # 1 crédito: porte, UF e cidade da empresa
     apollo_max_candidatos: int = 25  # pessoas trazidas da busca (sem crédito) para o Mapeador escolher
     decisores_max_web_searches: int = 3  # busca web em fontes públicas quando o Apollo não cobre as áreas
+    # Caminho alternativo sem Apollo (ADR 0012): nomes pela busca web, e-mail inferido e verificado no Apify
+    apify_token: str = ""
+    apify_base_url: str = "https://api.apify.com/v2"
+    apify_verificador: str = "bounceverify~bounceverify-email-verifier"
+    apify_timeout_s: float = 150.0
+    apify_preco_por_email_usd: Decimal = Decimal("0.00089")
+    apify_daily_budget_usd: Decimal = Decimal("2")  # disjuntor diário do Apify (Brasília); igual na API
 
     # Prints das páginas (MinIO, compatível com S3)
     minio_endpoint: str = "http://minio:9000"

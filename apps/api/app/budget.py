@@ -53,6 +53,27 @@ def verificar_creditos_apollo(db: Session, agora: datetime | None = None) -> Dis
     return DisjuntorCreditos(creditos_hoje=usados, teto=teto, atingido=usados >= teto)
 
 
+@dataclass(frozen=True)
+class DisjuntorApify:
+    gasto_hoje_usd: Decimal
+    teto_usd: Decimal
+    atingido: bool
+
+
+def verificar_gasto_apify(db: Session, agora: datetime | None = None) -> DisjuntorApify:
+    """Gasto do dia com o verificador de e-mail no Apify (ADR 0012); as ações guardam o custo em reais."""
+    soma = func.coalesce(func.sum(AcaoAgente.custo), 0)
+    total = db.scalar(
+        select(soma).where(
+            AcaoAgente.agente == "mapeador.apify", AcaoAgente.criado_em >= inicio_do_dia(agora)
+        )
+    )
+    s = get_settings()
+    gasto = (Decimal(str(total or 0)) / s.usd_brl_rate).quantize(Decimal("0.01"))
+    teto = s.apify_daily_budget_usd
+    return DisjuntorApify(gasto_hoje_usd=gasto, teto_usd=teto, atingido=gasto >= teto)
+
+
 def verificar_disjuntor(db: Session, agora: datetime | None = None) -> DisjuntorCusto:
     teto = get_settings().daily_ai_budget_brl
     custo = custo_do_dia(db, agora)

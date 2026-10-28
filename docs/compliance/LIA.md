@@ -30,6 +30,10 @@ Decisores (Mapeador, ADR 0009):
   da busca ou no registro do Apollo.
 - O e-mail é sempre o profissional, no domínio da organização, obtido no Apollo e validado (MX e verificação).
   Não pedimos e-mail pessoal nem telefone.
+- Quando o Apollo não está disponível (ADR 0012), o e-mail profissional é **inferido** a partir do nome e do
+  padrão do domínio da organização (ex.: nome.sobrenome@) e só é aceito se um verificador (Apify) confirmar por
+  SMTP que a caixa existe e que o domínio não aceita qualquer endereço (catch-all). E-mails de função, pessoais e
+  descartáveis são recusados; os endereços testados e não confirmados não são guardados.
 
 ## 5. Encarregado (DPO) e contato
 _Preencher: nome e e-mail do encarregado pelo tratamento de dados da Sinal Link._
