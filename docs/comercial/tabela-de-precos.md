@@ -1,8 +1,20 @@
-# Tabela de preços — estrutura proposta
+# Tabela de preços
 
-> Proposta de estrutura, **sem valores**. A CONSTITUICAO (§2.2, §11.2) proíbe a IA de inventar preço:
-> a plataforma só usa o que for cadastrado aqui. Preencha os valores e leve para a Fase 3 — o Propositor
-> (§11.2) monta a proposta só com o que estiver nesta tabela.
+> A CONSTITUICAO (§2.2, §11.2) proíbe a IA de inventar preço: a plataforma só usa o que estiver cadastrado
+> aqui. Valores definidos por Marcos Alencar em 2026-11-18. Ainda faltam o teto de desconto sem aprovação
+> e a validade padrão da proposta (seção "O que falta" abaixo) — até lá, o Propositor (Fase 6) não tem
+> essas duas regras para aplicar sozinho.
+
+## Planos definidos
+
+| Plano | Tipo | Valor | Periodicidade |
+|---|---|---|---|
+| Plugin | `plugin` | R$ 930,00 | anual |
+| Combo (plugin + consultoria) | `combo` | R$ 3.945,00 | _a confirmar: anual ou único?_ |
+| Enterprise / escopo customizado | `custom` | Sob consulta | — |
+
+_Confirmar com Marcos: a periodicidade do Combo (R$ 3.945,00) — segue anual como o Plugin, ou é um valor
+único de projeto?_
 
 ## Por que esta estrutura
 
@@ -18,7 +30,7 @@ para o Propositor funcionar.
 |---|---|---|
 | `id` | Identificador curto (ex. `plugin-basico`) | — |
 | `nome` | Nome comercial do plano | — |
-| `tipo` | `plugin` \| `consultoria` \| `combo` \| `monitoramento` | — |
+| `tipo` | `plugin` \| `consultoria` \| `combo` \| `monitoramento` \| `custom` | — |
 | `descricao` | Frase curta para a proposta | — |
 | `unidade` | Como é cobrado: `por_site`, `por_hora`, `por_pagina`, `mensal`, `unico` | — |
 | `valor_setup` | Cobrança única de implantação (se houver) | _preencher_ |
@@ -35,24 +47,47 @@ para o Propositor funcionar.
 | `validade_proposta_dias` | Quantos dias a proposta gerada fica válida | _preencher_ |
 | `atualizado_em` | Data da última revisão de preços | — |
 
-## Exemplo de preenchimento (estrutura, não use os valores)
+## JSON com os valores definidos
+
+Periodicidade do Combo marcada como `"a_confirmar"` até a resposta de Marcos; `desconto_maximo_sem_aprovacao`
+e `validade_proposta_dias` seguem sem valor.
 
 ```json
 {
   "moeda": "BRL",
-  "desconto_maximo_sem_aprovacao": 0,
-  "validade_proposta_dias": 0,
-  "atualizado_em": "AAAA-MM-DD",
+  "desconto_maximo_sem_aprovacao": null,
+  "validade_proposta_dias": null,
+  "atualizado_em": "2026-11-18",
   "planos": [
     {
-      "id": "preencher",
-      "nome": "preencher",
+      "id": "plugin",
+      "nome": "Plugin de acessibilidade",
       "tipo": "plugin",
-      "descricao": "preencher",
-      "unidade": "preencher",
+      "descricao": "Tecnologia assistiva imediata no site.",
+      "unidade": "por_site",
+      "valor_setup": null,
+      "valor_recorrente": 930.00,
+      "periodicidade": "anual"
+    },
+    {
+      "id": "combo",
+      "nome": "Combo (plugin + consultoria)",
+      "tipo": "combo",
+      "descricao": "Plugin + correção no código, capacitação e auditoria manual.",
+      "unidade": "por_site",
+      "valor_setup": null,
+      "valor_recorrente": 3945.00,
+      "periodicidade": "a_confirmar"
+    },
+    {
+      "id": "enterprise",
+      "nome": "Enterprise / escopo customizado",
+      "tipo": "custom",
+      "descricao": "Para organizações grandes ou escopo fora do catálogo padrão.",
+      "unidade": "sob_consulta",
       "valor_setup": null,
       "valor_recorrente": null,
-      "periodicidade": "preencher"
+      "periodicidade": "nenhuma"
     }
   ]
 }
@@ -66,6 +101,7 @@ com uma migração Alembic simples. Não crie essa migração agora; a Fase 2 n�
 futuras sem pedido explícito.
 
 ## O que falta para fechar esta frente
-- [ ] Definir os planos reais (quantos, quais tipos, valores de setup/recorrência)
+- [x] Definir os planos reais e valores (Plugin R$ 930/ano, Combo R$ 3.945, Enterprise sob consulta)
+- [ ] Confirmar a periodicidade do Combo (anual, como o Plugin, ou valor único de projeto?)
 - [ ] Definir o teto de desconto que o Propositor pode aplicar sem te consultar
 - [ ] Definir a validade padrão da proposta gerada

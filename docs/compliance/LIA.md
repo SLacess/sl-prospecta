@@ -1,7 +1,7 @@
-# Relatório de Legítimo Interesse (LIA) — rascunho
+# Relatório de Legítimo Interesse (LIA)
 
-> Modelo inicial para a CONSTITUICAO §15.1. **Deve ser revisado e validado por advogado** antes do início
-> dos envios (Fase 3).
+> Modelo inicial para a CONSTITUICAO §15.1. **Validado com advogado em 2026-11-18** (confirmado por
+> Marcos Alencar).
 
 ## 1. Finalidade
 Contato comercial B2B com profissionais, em seu papel corporativo, de organizações que podem se beneficiar
@@ -36,4 +36,4 @@ Decisores (Mapeador, ADR 0009):
   descartáveis são recusados; os endereços testados e não confirmados não são guardados.
 
 ## 5. Encarregado (DPO) e contato
-_Preencher: nome e e-mail do encarregado pelo tratamento de dados da Sinal Link._
+Marcos Alencar — marcos@sinallink.com.br
