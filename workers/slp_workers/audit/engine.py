@@ -42,7 +42,9 @@ CATEGORIAS_AUDITORIA: Categorias = [
     ("carreiras", ("trabalhe-conosco", "trabalhe conosco", "carreiras", "vagas")),
 ]
 
-JS_LINKS = """() => [...document.querySelectorAll("a[href]")].slice(0, 500).map((a) => ({
+JS_LINKS = """() => [...document.querySelectorAll("a[href]")]
+  .filter((a) => a instanceof HTMLAnchorElement)
+  .slice(0, 500).map((a) => ({
   href: a.href,
   texto: (a.innerText || a.getAttribute("aria-label") || "").trim().replace(/\\s+/g, " ").slice(0, 80),
 }))"""

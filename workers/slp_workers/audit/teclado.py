@@ -95,6 +95,8 @@ def analisar_sequencia(paradas: list[dict | None], focaveis: int) -> dict[str, A
 
 
 async def testar_teclado(page: Any, tabs: int) -> dict[str, Any]:
+    from playwright.async_api import Error as ErroPlaywright
+
     await page.evaluate(
         "() => { window.scrollTo(0, 0); document.activeElement && document.activeElement.blur(); }"
     )
@@ -102,6 +104,11 @@ async def testar_teclado(page: Any, tabs: int) -> dict[str, Any]:
     paradas: list[dict | None] = []
     # Focáveis + uma janela de armadilha: o bastante para atravessar a página e notar se o foco prende
     for _ in range(min(tabs, focaveis + JANELA_ARMADILHA + 5)):
-        await page.keyboard.press("Tab")
-        paradas.append(await page.evaluate(JS_FOCO))
+        try:
+            await page.keyboard.press("Tab")
+            paradas.append(await page.evaluate(JS_FOCO))
+        except ErroPlaywright:
+            # A página navegou no meio do teste (ex.: foco dispara um redirecionamento);
+            # usa as paradas já coletadas em vez de derrubar a auditoria inteira.
+            break
     return analisar_sequencia(paradas, focaveis)
