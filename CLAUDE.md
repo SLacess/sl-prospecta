@@ -58,9 +58,13 @@ cd apps/web && npm install && npm run dev
 - Estados do prospect seguem exatamente a máquina de estados do §7.1. Não crie estados novos sem emendar a Constituição.
 
 ## Fase atual
-**Fase 2 — Qualificação + Decisores + Lote** (§19): Qualificador (score com pesos da `config`, faixas quente/morno/frio),
-Mapeador de decisores (Apollo, até 3 contatos, tabela `contatos`), upload de planilha `.xlsx`/`.csv` com deduplicação
-e CRM Kanban com os estados do §7.1.
-Critério para avançar: uma planilha de 100 empresas processada sem erro, com score e decisores coerentes na avaliação de Marcos.
-Fase 1 concluída em 26/10/2026 (20 auditorias, 4 setores, 92,2% de acertos — ver ADR 0007).
-Próxima: **Fase 3 — Abordagem com aprovação humana**. Não antecipe funcionalidades de fases futuras sem pedido explícito.
+**Fase 3 — Abordagem com aprovação humana** (§19): Prompts versionados (guia de voz, Estrategista, Redator,
+Crítico) em `packages/prompts` com evals de 30 prospects de referência (`tests/evals`); geração da sequência
+de 6 toques por persona; Caixa de Aprovação (editar em linha, aprovar, rejeitar com motivo).
+**Sem Mensageiro/Guardião automático por ora (ADR 0014):** o texto aprovado é entregue para o vendedor enviar
+manualmente pela própria caixa de e-mail — não implemente envio automático, OAuth do Gmail nem disjuntores de
+bounce/spam sem pedido explícito. A Caixa de Aprovação precisa de alguma confirmação manual de envio (ex.:
+"marquei como enviado") para a linha do tempo do prospect não ficar sem esse evento.
+Critério para avançar: 50 e-mails aprovados por Marcos com menos de 20% de texto alterado.
+Fase 2 concluída em 18/11/2026 (lote de 100, score e decisores coerentes — ver ADR 0015).
+Próxima: **Fase 4 — Conversa, agenda e painel**. Não antecipe funcionalidades de fases futuras sem pedido explícito.
