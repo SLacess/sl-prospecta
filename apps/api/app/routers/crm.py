@@ -295,3 +295,12 @@ def funil(db: Session = Depends(get_db), _: Usuario = Depends(get_current_user))
         com_decisores=soma(*ABORDADAS, *depois_da_reuniao),
         reunioes=soma(*depois_da_reuniao),
     )
+
+
+@router.get("/crm/funil-detalhado", response_model=dict[str, int])
+def funil_detalhado(
+    db: Session = Depends(get_db), _: Usuario = Depends(get_current_user)
+) -> dict[str, int]:
+    """Quantas empresas há em cada estado do §7.1 — para a visão geral do funil (CONSTITUICAO §12.1)."""
+    contagem = dict(db.execute(select(Empresa.estado, func.count()).group_by(Empresa.estado)).all())
+    return {e.value: contagem.get(e, 0) for e in EstadoProspect}

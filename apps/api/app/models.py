@@ -267,6 +267,46 @@ class Contato(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class Sequencia(Base):
+    """Decisão do Estrategista por contato (CONSTITUICAO §7.3, Etapa 5, a partir da Fase 3)."""
+
+    __tablename__ = "sequencias"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
+    empresa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("empresas.id", ondelete="CASCADE"), index=True)
+    contato_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("contatos.id", ondelete="CASCADE"))
+    persona: Mapped[str] = mapped_column(String(30))
+    angulo: Mapped[str] = mapped_column(String(40))
+    achado_titulo: Mapped[str] = mapped_column(String(300))
+    achado_pagina_url: Mapped[str] = mapped_column(String(500))
+    gancho_justificativa: Mapped[str] = mapped_column(Text)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Toque(Base):
+    """Um dia planejado da cadência (CONSTITUICAO §9.3); só o dia 0 é redigido e revisado na Fase 3."""
+
+    __tablename__ = "toques"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
+    sequencia_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("sequencias.id", ondelete="CASCADE"), index=True
+    )
+    dia: Mapped[int] = mapped_column(Integer)
+    canal: Mapped[str] = mapped_column(String(20))  # email | linkedin | whatsapp
+    status: Mapped[str] = mapped_column(String(20))  # planejada | rascunho
+    conteudo_sugerido: Mapped[str] = mapped_column(Text)
+    assunto: Mapped[str | None] = mapped_column(String(200))
+    corpo: Mapped[str | None] = mapped_column(Text)
+    fatos_usados: Mapped[list | None] = mapped_column(JSON)
+    criterios_json: Mapped[dict | None] = mapped_column(JSON)
+    nota: Mapped[int | None] = mapped_column(Integer)
+    aprovado: Mapped[bool | None] = mapped_column()
+    motivo_critico: Mapped[str | None] = mapped_column(Text)
+    tentativas: Mapped[int | None] = mapped_column(Integer)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Supressao(Base):
     """Lista de supressão global — verificada antes de qualquer envio (CONSTITUICAO §15)."""
 

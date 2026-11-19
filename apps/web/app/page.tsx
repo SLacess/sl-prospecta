@@ -7,7 +7,7 @@ import {
   type Disjuntores,
   type EmpresaDetalhe,
   ErroApi,
-  type Funil,
+  type FunilDetalhado,
   lerToken,
   type ProspeccaoResposta,
   ROTULO_ESTADO,
@@ -17,6 +17,7 @@ import {
 import { AuditoriaTecnica } from "./auditoria-tecnica";
 import { ConfirmarSite } from "./confirmar-site";
 import { EnvioPlanilha } from "./envio-planilha";
+import { VisaoGeralFunil } from "./visao-geral-funil";
 
 /** Intervalo da consulta ao andamento (ADR 0002: consulta periódica em vez de WebSocket na Fase 1). */
 const INTERVALO_MS = 2000;
@@ -59,7 +60,7 @@ export default function PainelProspeccao() {
   const [disjuntor, setDisjuntor] = useState<Disjuntores["custo"] | null>(null);
   const [apollo, setApollo] = useState<Disjuntores["apollo"] | null>(null);
   const [apify, setApify] = useState<Disjuntores["apify"] | null>(null);
-  const [funil, setFunil] = useState<Funil | null>(null);
+  const [funil, setFunil] = useState<FunilDetalhado | null>(null);
 
   const campoRef = useRef<HTMLInputElement>(null);
   const ultimoEventoAnunciado = useRef<string | null>(null);
@@ -81,7 +82,7 @@ export default function PainelProspeccao() {
       return;
     }
     void atualizarDisjuntor();
-    apiFetch<Funil>("/crm/funil")
+    apiFetch<FunilDetalhado>("/crm/funil-detalhado")
       .then(setFunil)
       .catch(() => setFunil(null));
   }, [atualizarDisjuntor]);
@@ -293,23 +294,8 @@ export default function PainelProspeccao() {
         </section>
       )}
 
-      <h2>Funil</h2>
-      <div className="grid" role="list" aria-label="Indicadores do funil">
-        {(
-          [
-            ["Prospects", funil?.prospects],
-            ["Qualificados", funil?.qualificados],
-            ["Com decisores", funil?.com_decisores],
-            ["Reuniões", funil?.reunioes],
-          ] as const
-        ).map(([rotulo, valor]) => (
-          <div key={rotulo} className="card" role="listitem">
-            <div className="hint">{rotulo}</div>
-            <div style={{ fontSize: "1.6rem", fontWeight: 700 }}>{valor ?? "—"}</div>
-          </div>
-        ))}
-      </div>
-      <p className="hint">
+      <VisaoGeralFunil funil={funil} />
+      <p className="hint" style={{ marginTop: "1rem" }}>
         <a href="/crm">Abrir o CRM</a>
       </p>
     </>

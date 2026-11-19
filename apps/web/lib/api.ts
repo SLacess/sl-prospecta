@@ -285,6 +285,37 @@ export interface Decisor {
   fonte_url: string | null;
 }
 
+// --- Sequência (Fase 3, Tarefa 2 — CONSTITUICAO §7.3, Etapas 5-6) ---
+
+export interface Toque {
+  dia: number;
+  canal: string;
+  status: "planejada" | "rascunho";
+  conteudo_sugerido: string;
+  assunto: string | null;
+  corpo: string | null;
+  fatos_usados: string[] | null;
+  criterios_json: Record<string, number> | null;
+  nota: number | null;
+  aprovado: boolean | null;
+  motivo_critico: string | null;
+  tentativas: number | null;
+}
+
+export interface Sequencia {
+  id: string;
+  contato_nome: string;
+  contato_area: string;
+  persona: string;
+  angulo: string;
+  achado_titulo: string;
+  achado_pagina_url: string;
+  gancho_justificativa: string;
+  toques: Toque[];
+}
+
+export type FunilDetalhado = Record<EstadoProspect, number>;
+
 export interface Ficha {
   empresa: Empresa & { setor: string | null; cidade: string | null; uf: string | null };
   dossie: DossieCompleto | null;
@@ -292,6 +323,7 @@ export interface Ficha {
   evidencias: Evidencia[];
   qualificacao: Qualificacao | null;
   decisores: Decisor[];
+  sequencias: Sequencia[];
   destinos?: DestinoEstado[];
   relatorio_disponivel: boolean;
   eventos: Evento[];
