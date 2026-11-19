@@ -1,20 +1,17 @@
 # Tabela de preços
 
 > A CONSTITUICAO (§2.2, §11.2) proíbe a IA de inventar preço: a plataforma só usa o que estiver cadastrado
-> aqui. Valores definidos por Marcos Alencar em 2026-11-18. Ainda faltam o teto de desconto sem aprovação
-> e a validade padrão da proposta (seção "O que falta" abaixo) — até lá, o Propositor (Fase 6) não tem
-> essas duas regras para aplicar sozinho.
+> aqui. Valores e periodicidade definidos por Marcos Alencar em 2026-11-18. Ainda faltam o teto de desconto
+> sem aprovação e a validade padrão da proposta (seção "O que falta" abaixo) — até lá, o Propositor (Fase 6)
+> não tem essas duas regras para aplicar sozinho.
 
 ## Planos definidos
 
 | Plano | Tipo | Valor | Periodicidade |
 |---|---|---|---|
 | Plugin | `plugin` | R$ 930,00 | anual |
-| Combo (plugin + consultoria) | `combo` | R$ 3.945,00 | _a confirmar: anual ou único?_ |
+| Combo (plugin + consultoria) | `combo` | R$ 3.945,00 | anual |
 | Enterprise / escopo customizado | `custom` | Sob consulta | — |
-
-_Confirmar com Marcos: a periodicidade do Combo (R$ 3.945,00) — segue anual como o Plugin, ou é um valor
-único de projeto?_
 
 ## Por que esta estrutura
 
@@ -49,8 +46,7 @@ para o Propositor funcionar.
 
 ## JSON com os valores definidos
 
-Periodicidade do Combo marcada como `"a_confirmar"` até a resposta de Marcos; `desconto_maximo_sem_aprovacao`
-e `validade_proposta_dias` seguem sem valor.
+`desconto_maximo_sem_aprovacao` e `validade_proposta_dias` seguem sem valor.
 
 ```json
 {
@@ -77,7 +73,7 @@ e `validade_proposta_dias` seguem sem valor.
       "unidade": "por_site",
       "valor_setup": null,
       "valor_recorrente": 3945.00,
-      "periodicidade": "a_confirmar"
+      "periodicidade": "anual"
     },
     {
       "id": "enterprise",
@@ -101,7 +97,6 @@ com uma migração Alembic simples. Não crie essa migração agora; a Fase 2 n�
 futuras sem pedido explícito.
 
 ## O que falta para fechar esta frente
-- [x] Definir os planos reais e valores (Plugin R$ 930/ano, Combo R$ 3.945, Enterprise sob consulta)
-- [ ] Confirmar a periodicidade do Combo (anual, como o Plugin, ou valor único de projeto?)
+- [x] Definir os planos reais e valores (Plugin R$ 930/ano, Combo R$ 3.945/ano, Enterprise sob consulta)
 - [ ] Definir o teto de desconto que o Propositor pode aplicar sem te consultar
 - [ ] Definir a validade padrão da proposta gerada
