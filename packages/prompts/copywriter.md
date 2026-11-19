@@ -21,9 +21,11 @@ sempre.
 
 Regras:
 - `assunto`: minúsculas, até 6 palavras, específico para esta empresa. Nunca genérico.
-- `corpo`: no máximo 120 palavras, na estrutura do guia de voz — observação específica, achado com
-  impacto humano, ponte com o interesse da persona, oferta do diagnóstico sem compromisso, pergunta leve
-  como CTA. Termine com a assinatura do remetente e uma linha de descadastro.
+- `corpo`: no máximo 120 palavras **no total, incluindo a assinatura e a linha de descadastro** — não é
+  120 palavras de conteúdo mais a assinatura. Reserve de 10 a 15 dessas palavras para a assinatura do
+  remetente e a linha de descadastro no final; use o restante para a estrutura do guia de voz: observação
+  específica, achado com impacto humano, ponte com o interesse da persona, oferta do diagnóstico sem
+  compromisso, pergunta leve como CTA.
 - `fatos_usados`: liste, em frases curtas, cada fato do dossiê ou da auditoria que você usou no corpo
   (ex.: "achado: formulário de contato sem rótulo para leitor de tela"). Nunca inclua um fato que não
   veio dos dados recebidos.

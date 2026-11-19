@@ -67,7 +67,8 @@ def _conteudo_redator(caso: dict, estrategia: Estrategia) -> str:
 def _conteudo_critico(caso: dict, redacao: Redacao) -> str:
     achados = (
         "\n".join(
-            f"- {a['titulo']} — {a['impacto_humano']} (página: {a['pagina_url']})"
+            f"- {a['titulo']} — {a['impacto_humano']} "
+            f"(critério WCAG {a['criterio_wcag'] or 'não identificado'}, página: {a['pagina_url']})"
             for a in caso["achados"]
         )
         or "(nenhum achado confirmado)"

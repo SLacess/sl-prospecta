@@ -6,17 +6,28 @@ só no relatório para leitura humana, nunca falha o teste sozinha.
 
 import json
 import re
+import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+
+def _sem_acentos(texto: str) -> str:
+    return "".join(
+        c for c in unicodedata.normalize("NFKD", texto) if not unicodedata.combining(c)
+    )
+
+
 PROIBICOES = [
-    "revolucionário",
-    "solução completa",
-    "100% acessível",
-    "100% acessíveis",
-    "garantimos conformidade",
-    "garantia legal",
+    _sem_acentos(t)
+    for t in [
+        "revolucionário",
+        "solução completa",
+        "100% acessível",
+        "100% acessíveis",
+        "garantimos conformidade",
+        "garantia legal",
+    ]
 ]
 
 PASTA_RELATORIOS = Path(__file__).resolve().parent / "relatorios"
@@ -35,8 +46,8 @@ def checar_corpo(corpo: str) -> bool:
 
 
 def checar_proibicoes(texto: str, extras: list[str] | None = None) -> list[str]:
-    baixo = texto.lower()
-    termos = PROIBICOES + [t.lower() for t in (extras or [])]
+    baixo = _sem_acentos(texto.lower())
+    termos = PROIBICOES + [_sem_acentos(t.lower()) for t in (extras or [])]
     encontradas = [t for t in termos if t in baixo]
     encontradas += re.findall(
         r"[^\s]+!{2,}", texto
@@ -56,7 +67,7 @@ def checar_fundamentacao(
     termos = {p for p in alvo.split() if len(p) > 3}
     if not termos:
         return True
-    texto = (corpo + " " + " ".join(fatos_usados)).lower()
+    texto = _sem_acentos((corpo + " " + " ".join(fatos_usados)).lower())
     return any(termo in texto for termo in termos)
 
 
