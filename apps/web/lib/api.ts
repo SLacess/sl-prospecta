@@ -316,6 +316,50 @@ export interface Sequencia {
 
 export type FunilDetalhado = Record<EstadoProspect, number>;
 
+// --- Caixa de Aprovação (Fase 3, Tarefa 3 — CONSTITUICAO §12.1, item 4; ADR 0014) ---
+
+export type FiltroCaixa = "pendentes" | "aprovados" | "rejeitados" | "enviados";
+
+export interface ItemCaixaAprovacao {
+  toque_id: string;
+  sequencia_id: string;
+  empresa_id: string;
+  empresa_nome: string;
+  contato_nome: string;
+  contato_area: string;
+  persona: string;
+  angulo: string;
+  achado_titulo: string;
+  achado_pagina_url: string;
+  gancho_justificativa: string;
+  dia: number;
+  canal: string;
+  nota: number | null;
+  aprovado_critico: boolean | null;
+  motivo_critico: string | null;
+  tentativas: number | null;
+  assunto: string;
+  corpo: string;
+  decisao_humana: "aprovado" | "rejeitado" | null;
+  assunto_final: string | null;
+  corpo_final: string | null;
+  percentual_editado: number | null;
+  motivo_rejeicao: string | null;
+  decidido_por_nome: string | null;
+  decidido_em: string | null;
+  enviado_em: string | null;
+  enviado_por_nome: string | null;
+}
+
+export interface PlacarCaixa {
+  meta: number;
+  aprovados: number;
+  aprovados_dentro_da_meta: number;
+  percentual_medio_editado: number | null;
+  atingido: boolean;
+  pendencias: string[];
+}
+
 export interface Ficha {
   empresa: Empresa & { setor: string | null; cidade: string | null; uf: string | null };
   dossie: DossieCompleto | null;

@@ -306,6 +306,17 @@ class Toque(Base):
     tentativas: Mapped[int | None] = mapped_column(Integer)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    # Caixa de Aprovação (CONSTITUICAO §12.1, item 4; ADR 0014) — decisão humana sobre este toque
+    decisao_humana: Mapped[str | None] = mapped_column(String(20))  # aprovado | rejeitado
+    decidido_por: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuarios.id", ondelete="SET NULL"))
+    decidido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    motivo_rejeicao: Mapped[str | None] = mapped_column(Text)
+    assunto_final: Mapped[str | None] = mapped_column(String(200))
+    corpo_final: Mapped[str | None] = mapped_column(Text)
+    percentual_editado: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    enviado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    enviado_por: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuarios.id", ondelete="SET NULL"))
+
 
 class Supressao(Base):
     """Lista de supressão global — verificada antes de qualquer envio (CONSTITUICAO §15)."""
