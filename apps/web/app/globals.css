@@ -382,6 +382,12 @@ button.secundario { background: var(--surface); color: var(--primary); }
 .destinos-mover label { display: inline; margin: 0; font-weight: 400; }
 .destinos-mover input[type="radio"] { width: 1.2rem; height: 1.2rem; margin: 0; }
 
+/* Caixa de Aprovação (CONSTITUICAO §12.1, item 4) */
+.cartao-caixa textarea { width: 100%; font: inherit; padding: 0.7rem 0.8rem; border: 2px solid var(--border);
+  border-radius: 8px; background: var(--surface); color: var(--text); }
+kbd { font: 0.78rem var(--font-inter), monospace; border: 1px solid var(--border); border-radius: 4px;
+  padding: 0.05rem 0.4rem; background: var(--surface-2); }
+
 /* Pills de status — fundo claro + texto escuro, sempre com o rótulo escrito (§2.8, nunca só cor) */
 .pill { display: inline-flex; align-items: center; gap: 0.3rem; border-radius: 999px; padding: 0.15rem 0.65rem;
   font-size: 0.82rem; font-weight: 700; white-space: nowrap; }
