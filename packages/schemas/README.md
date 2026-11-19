@@ -13,10 +13,8 @@ Esquemas publicados (gerados dos modelos Pydantic; os testes do worker falham se
 - `mapeador-colunas.schema.json` — colunas de uma planilha de lote identificadas pela IA (§7.2, entrada 2).
 - `mapeador-nomes.schema.json` — nomes completos, em fontes públicas, de quem a busca grátis do Apollo achou (ADR 0012).
 - `estrategia.schema.json` — saída do Estrategista (§7.3, Etapa 5): persona, ângulo, gancho de evidência e
-  canal/cadência. **Provisório** (Fase 3, Tarefa 1): o modelo Pydantic vive em `tests/evals/schemas.py`
-  até a Tarefa 2 criar `workers/slp_workers/agents/strategist.py`.
-- `redacao.schema.json` — saída do Redator (§21.1): assunto, corpo, fatos usados e ângulo. **Provisório**,
-  mesma observação acima (`workers/slp_workers/agents/copywriter.py` na Tarefa 2).
+  canal/cadência. Modelo em `workers/slp_workers/agents/strategist.py`.
+- `redacao.schema.json` — saída do Redator (§21.1): assunto, corpo, fatos usados e ângulo. Modelo em
+  `workers/slp_workers/agents/copywriter.py`.
 - `critica.schema.json` — saída do Crítico (§9.4, §7.3 Etapa 6): nota por critério, nota final (o mínimo
-  dos critérios), aprovação e motivo. **Provisório**, mesma observação acima
-  (`workers/slp_workers/agents/reviewer.py` na Tarefa 2).
+  dos critérios), aprovação e motivo. Modelo em `workers/slp_workers/agents/reviewer.py`.

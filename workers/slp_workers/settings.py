@@ -66,6 +66,10 @@ class WorkerConfig(BaseSettings):
     apify_preco_por_email_usd: Decimal = Decimal("0.00089")
     apify_daily_budget_usd: Decimal = Decimal("2")  # disjuntor diário do Apify (Brasília); igual na API
 
+    # Geração da sequência (CONSTITUICAO §7.3, Etapas 5-6, a partir da Fase 3). Estimativa, não medição
+    # real: ajuste depois do primeiro uso (ver custo_estimado_por_contato em orchestrator/sequencia.py)
+    sequencia_cost_cap_brl: Decimal = Decimal("1.00")  # teto de IA por contato (Estrategista + até 3 ciclos)
+
     # Prints das páginas (MinIO, compatível com S3)
     minio_endpoint: str = "http://minio:9000"
     minio_root_user: str = ""

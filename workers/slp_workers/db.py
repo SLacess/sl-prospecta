@@ -89,6 +89,7 @@ acoes_agentes = Table(
     Column("id", Uuid, primary_key=True),
     Column("agente", String(40)),
     Column("empresa_id", Uuid),
+    Column("contato_id", Uuid),
     Column("entrada_hash", String(64)),
     Column("saida_json", JSON),
     Column("raciocinio", Text),
@@ -132,6 +133,38 @@ contatos = Table(
     Column("criado_em", DateTime(timezone=True)),
 )
 
+sequencias = Table(
+    "sequencias", metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("empresa_id", Uuid, ForeignKey("empresas.id")),
+    Column("contato_id", Uuid, ForeignKey("contatos.id")),
+    Column("persona", String(30)),
+    Column("angulo", String(40)),
+    Column("achado_titulo", String(300)),
+    Column("achado_pagina_url", String(500)),
+    Column("gancho_justificativa", Text),
+    Column("criado_em", DateTime(timezone=True)),
+)
+
+toques = Table(
+    "toques", metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("sequencia_id", Uuid, ForeignKey("sequencias.id")),
+    Column("dia", Integer),
+    Column("canal", String(20)),
+    Column("status", String(20)),
+    Column("conteudo_sugerido", Text),
+    Column("assunto", String(200)),
+    Column("corpo", Text),
+    Column("fatos_usados", JSON),
+    Column("criterios_json", JSON),
+    Column("nota", Integer),
+    Column("aprovado", Boolean),
+    Column("motivo_critico", Text),
+    Column("tentativas", Integer),
+    Column("criado_em", DateTime(timezone=True)),
+)
+
 supressao = Table(
     "supressao", metadata,
     Column("id", Uuid, primary_key=True),
@@ -161,7 +194,13 @@ def make_engine(database_url: str) -> Engine:
 
 
 def registrar_evento(
-    engine: Engine, empresa_id: uuid.UUID, tipo: str, mensagem: str, **dados: object
+    engine: Engine,
+    empresa_id: uuid.UUID,
+    tipo: str,
+    mensagem: str,
+    *,
+    contato_id: uuid.UUID | None = None,
+    **dados: object,
 ) -> None:
     """Mesmo formato da API (`app/timeline.py`): `dados_json.mensagem` é o texto do painel."""
     with engine.begin() as conn:
@@ -169,6 +208,7 @@ def registrar_evento(
             eventos.insert().values(
                 id=uuid.uuid4(),
                 empresa_id=empresa_id,
+                contato_id=contato_id,
                 tipo=tipo,
                 origem="sistema",
                 dados_json={"mensagem": mensagem, **dados},
@@ -191,15 +231,16 @@ def registrar_acao(
     custo_brl: Decimal,
     duracao_ms: int,
     creditos: int = 0,
+    contato_id: uuid.UUID | None = None,
 ) -> None:
     """Toda ação de IA fica registrada, inclusive as que falharam depois de gastar (CONSTITUICAO §2.7)."""
     with engine.begin() as conn:
         conn.execute(
             acoes_agentes.insert().values(
-                id=uuid.uuid4(), agente=agente, empresa_id=empresa_id, entrada_hash=entrada_hash,
-                saida_json=saida, raciocinio=raciocinio, modelo=modelo, tokens_in=tokens_in,
-                tokens_out=tokens_out, custo=custo_brl, duracao_ms=duracao_ms, creditos=creditos,
-                criado_em=datetime.now(UTC),
+                id=uuid.uuid4(), agente=agente, empresa_id=empresa_id, contato_id=contato_id,
+                entrada_hash=entrada_hash, saida_json=saida, raciocinio=raciocinio, modelo=modelo,
+                tokens_in=tokens_in, tokens_out=tokens_out, custo=custo_brl, duracao_ms=duracao_ms,
+                creditos=creditos, criado_em=datetime.now(UTC),
             )
         )
 
