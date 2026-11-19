@@ -513,6 +513,13 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
       const busca = url.searchParams.get("busca")?.toLowerCase();
       return json(route, 200, montarQuadro(busca ? cartoes.filter((c) => JSON.stringify(c).toLowerCase().includes(busca)) : cartoes));
     }
+    if (url.pathname === "/crm/funil-detalhado") {
+      return json(route, 200, {
+        NOVO: 1, PESQUISANDO: 2, AUDITANDO: 0, QUALIFICANDO: 3, ARQUIVADO: 2, MAPEANDO_DECISORES: 4,
+        PREPARANDO_ABORDAGEM: 6, EM_SEQUENCIA: 0, SEM_RESPOSTA: 0, RESPONDEU: 0, NAO_INTERESSADO: 1,
+        REUNIAO_AGENDADA: 0, PROPOSTA_ENVIADA: 0, NEGOCIACAO: 0, GANHO: 0, PERDIDO: 0,
+      });
+    }
     if (url.pathname === "/crm/funil") {
       return json(route, 200, { prospects: 23, qualificados: 20, com_decisores: 14, reunioes: 0 });
     }
