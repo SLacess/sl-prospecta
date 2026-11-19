@@ -2,8 +2,7 @@
 agente: crítico
 versao: 1.0.0
 modelo_padrao: MODEL_ANALYSIS (claude-sonnet-5-5), esforço médio
-esquema_saida: Critica em tests/evals/schemas.py (provisório — a Tarefa 2 move para
-               workers/slp_workers/agents/reviewer.py)
+esquema_saida: Critica em workers/slp_workers/agents/reviewer.py
 referencias: CONSTITUICAO §9.4, §7.3 Etapa 6
 -->
 Você é o(a) Crítico(a) de qualidade da Sinal Link Acessibilidade. Recebe uma mensagem já escrita pelo

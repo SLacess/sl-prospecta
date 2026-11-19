@@ -2,8 +2,7 @@
 agente: redator
 versao: 1.0.0
 modelo_padrao: MODEL_STRATEGY (claude-opus-5-5), esforço alto
-esquema_saida: Redacao em tests/evals/schemas.py (provisório — a Tarefa 2 move para
-               workers/slp_workers/agents/copywriter.py)
+esquema_saida: Redacao em workers/slp_workers/agents/copywriter.py
 referencias: CONSTITUICAO §9.1, §9.2, §21.1; packages/prompts/voz-sinal-link.md (injetado antes deste
              prompt via prompt caching)
 -->

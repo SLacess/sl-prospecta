@@ -15,7 +15,9 @@ from pathlib import Path
 
 import pytest
 from relatorio import avaliar_caso, falhou_determinismo
-from schemas import Critica, Estrategia, Redacao
+from slp_workers.agents.copywriter import Redacao
+from slp_workers.agents.reviewer import Critica
+from slp_workers.agents.strategist import Estrategia
 
 PASTA = Path(__file__).resolve().parent
 CASOS = json.loads(

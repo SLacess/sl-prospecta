@@ -2,8 +2,7 @@
 agente: estrategista (ângulo, persona e canal)
 versao: 1.0.0
 modelo_padrao: MODEL_STRATEGY (claude-opus-5-5), esforço alto
-esquema_saida: Estrategia em tests/evals/schemas.py (provisório — a Tarefa 2 move para
-               workers/slp_workers/agents/strategist.py)
+esquema_saida: Estrategia em workers/slp_workers/agents/strategist.py
 referencias: CONSTITUICAO §6 (tabela de agentes), §7.3 Etapa 5, §9.2, §9.3
 -->
 Você é o(a) Estrategista da Sinal Link Acessibilidade, consultoria brasileira de tecnologia assistiva e

@@ -8,6 +8,8 @@ Uso (no contêiner do worker):
     python -m slp_workers.cli qualificar --todas [--listar]      # recalcula todos (ex.: pesos novos)
     python -m slp_workers.cli decisores --pendentes [--listar]   # busca decisores (créditos do Apollo + IA)
     python -m slp_workers.cli decisores --empresa <id> [--listar]
+    python -m slp_workers.cli gerar-sequencia --pendentes [--listar]  # Estrategista + Redator + Crítico
+    python -m slp_workers.cli gerar-sequencia --empresa <id> [--listar]
 
 `retomar` serve para empresas que ficaram para trás numa mudança de versão: por exemplo, as que já
 tinham dossiê (PESQUISANDO) antes do Auditor, ou auditoria sem nota antes do Auditor com IA.
@@ -247,6 +249,101 @@ def decisores(empresa_id: str | None, listar: bool) -> int:
     return asyncio.run(_mapear(alvo))
 
 
+def _para_gerar_sequencia(empresa_id: str | None) -> list:
+    from slp_workers.orchestrator.sequencia import PREPARANDO_ABORDAGEM
+
+    engine = make_engine(get_config().database_url)
+    try:
+        with engine.connect() as conn:
+            consulta = select(empresas.c.id, empresas.c.nome, empresas.c.estado)
+            if empresa_id:
+                consulta = consulta.where(empresas.c.id == empresa_id)
+            else:
+                consulta = consulta.where(empresas.c.estado == PREPARANDO_ABORDAGEM)
+            return conn.execute(consulta.order_by(empresas.c.nome)).all()
+    finally:
+        engine.dispose()
+
+
+def _contatos_elegiveis(empresa_ids: list) -> int:
+    from sqlalchemy import func
+
+    from slp_workers.db import contatos, sequencias
+
+    if not empresa_ids:
+        return 0
+    engine = make_engine(get_config().database_url)
+    try:
+        with engine.connect() as conn:
+            ja = exists().where(sequencias.c.contato_id == contatos.c.id)
+            return (
+                conn.scalar(
+                    select(func.count())
+                    .select_from(contatos)
+                    .where(
+                        contatos.c.empresa_id.in_(empresa_ids),
+                        contatos.c.email_status == "valido",
+                        contatos.c.opt_out.is_(False),
+                        ~ja,
+                    )
+                )
+                or 0
+            )
+    finally:
+        engine.dispose()
+
+
+async def _gerar_sequencias(alvo: list) -> int:
+    from slp_workers.llm import ClienteAnthropic
+    from slp_workers.orchestrator.sequencia import CustoDiarioEsgotado, DependenciasSequencia, Sequencia
+
+    config = get_config()
+    engine = make_engine(config.database_url)
+    deps = DependenciasSequencia(engine=engine, ia=ClienteAnthropic(config), config=config)
+    feitas = 0
+    try:
+        for e in alvo:
+            try:
+                r = await Sequencia(deps, e.id).executar()
+            except CustoDiarioEsgotado as exc:
+                print(f"Parado: {exc}. As demais ficam para amanhã.")
+                break
+            feitas += bool(r)
+            print(f"{len(r)} contato(s)  {e.nome}: {r}")
+    finally:
+        engine.dispose()
+    print(f"{feitas} de {len(alvo)} empresa(s) processadas.")
+    return 0
+
+
+def gerar_sequencia(empresa_id: str | None, listar: bool) -> int:
+    from slp_workers.orchestrator.budget import verificar_disjuntor
+    from slp_workers.orchestrator.sequencia import custo_estimado_por_contato
+
+    alvo = _para_gerar_sequencia(empresa_id)
+    for e in alvo:
+        print(f"{e.estado:<20} {e.nome}")
+    config = get_config()
+    if listar:
+        n = _contatos_elegiveis([e.id for e in alvo])
+        melhor, pior = custo_estimado_por_contato(config)
+        engine = make_engine(config.database_url)
+        try:
+            disjuntor = verificar_disjuntor(engine)
+        finally:
+            engine.dispose()
+        print(
+            f"{len(alvo)} empresa(s), {n} contato(s) elegível(eis): entre R$ {melhor * n:.2f} e "
+            f"R$ {pior * n:.2f} de IA (estimativa, não medição real)."
+        )
+        print(
+            f"Gasto de IA hoje: R$ {disjuntor.custo_hoje_brl} de R$ {disjuntor.teto_brl} "
+            f"(teto diário, {'atingido' if disjuntor.atingido else 'livre'})."
+        )
+        return 0
+    return asyncio.run(_gerar_sequencias(alvo))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="slp_workers.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -269,6 +366,13 @@ def main() -> int:
     )
     grupo_d.add_argument("--empresa", help="Só esta empresa (id), se estiver em MAPEANDO_DECISORES")
     d.add_argument("--listar", action="store_true", help="Só lista e estima os créditos, sem buscar")
+    s = sub.add_parser(
+        "gerar-sequencia", help="Estrategista + Redator + Crítico (CONSTITUICAO §7.3, Etapas 5-6)"
+    )
+    grupo_s = s.add_mutually_exclusive_group(required=True)
+    grupo_s.add_argument("--pendentes", action="store_true", help="Empresas em PREPARANDO_ABORDAGEM")
+    grupo_s.add_argument("--empresa", help="Só esta empresa (id), se estiver em PREPARANDO_ABORDAGEM")
+    s.add_argument("--listar", action="store_true", help="Só lista e estima o custo de IA, sem gerar")
     args = parser.parse_args()
     if args.cmd == "retomar":
         return retomar(args.listar)
@@ -278,6 +382,8 @@ def main() -> int:
         return qualificar(args.todas, args.listar)
     if args.cmd == "decisores":
         return decisores(args.empresa, args.listar)
+    if args.cmd == "gerar-sequencia":
+        return gerar_sequencia(args.empresa, args.listar)
     return 1
 
 
