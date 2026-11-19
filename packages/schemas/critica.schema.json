@@ -1,0 +1,101 @@
+{
+  "$defs": {
+    "CriteriosCritico": {
+      "properties": {
+        "especificidade": {
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Especificidade",
+          "type": "integer"
+        },
+        "veracidade": {
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Veracidade",
+          "type": "integer"
+        },
+        "humanidade": {
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Humanidade",
+          "type": "integer"
+        },
+        "clareza": {
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Clareza",
+          "type": "integer"
+        },
+        "valor": {
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Valor",
+          "type": "integer"
+        },
+        "honestidade": {
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Honestidade",
+          "type": "integer"
+        },
+        "brevidade": {
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Brevidade",
+          "type": "integer"
+        },
+        "acessibilidade": {
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Acessibilidade",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "especificidade",
+        "veracidade",
+        "humanidade",
+        "clareza",
+        "valor",
+        "honestidade",
+        "brevidade",
+        "acessibilidade"
+      ],
+      "title": "CriteriosCritico",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "criterios": {
+      "$ref": "#/$defs/CriteriosCritico"
+    },
+    "nota": {
+      "description": "O menor valor entre os critérios, não a média",
+      "maximum": 10,
+      "minimum": 0,
+      "title": "Nota",
+      "type": "integer"
+    },
+    "aprovado": {
+      "title": "Aprovado",
+      "type": "boolean"
+    },
+    "motivo": {
+      "title": "Motivo",
+      "type": "string"
+    },
+    "raciocinio_resumido": {
+      "title": "Raciocinio Resumido",
+      "type": "string"
+    }
+  },
+  "required": [
+    "criterios",
+    "nota",
+    "aprovado",
+    "motivo",
+    "raciocinio_resumido"
+  ],
+  "title": "Critica",
+  "type": "object"
+}

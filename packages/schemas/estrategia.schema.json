@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "Toque": {
+      "properties": {
+        "dia": {
+          "title": "Dia",
+          "type": "integer"
+        },
+        "canal": {
+          "enum": [
+            "email",
+            "linkedin",
+            "whatsapp"
+          ],
+          "title": "Canal",
+          "type": "string"
+        },
+        "conteudo_sugerido": {
+          "title": "Conteudo Sugerido",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dia",
+        "canal",
+        "conteudo_sugerido"
+      ],
+      "title": "Toque",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "persona": {
+      "enum": [
+        "ti",
+        "rh_di",
+        "marketing_digital",
+        "esg",
+        "juridico_compliance"
+      ],
+      "title": "Persona",
+      "type": "string"
+    },
+    "angulo": {
+      "enum": [
+        "experiencia_cliente",
+        "inclusao_colaboradores_pcd",
+        "esg_reputacao",
+        "conformidade_legal",
+        "conversao_alcance_mercado"
+      ],
+      "title": "Angulo",
+      "type": "string"
+    },
+    "achado_titulo": {
+      "title": "Achado Titulo",
+      "type": "string"
+    },
+    "achado_pagina_url": {
+      "title": "Achado Pagina Url",
+      "type": "string"
+    },
+    "gancho_justificativa": {
+      "title": "Gancho Justificativa",
+      "type": "string"
+    },
+    "canal_e_cadencia": {
+      "items": {
+        "$ref": "#/$defs/Toque"
+      },
+      "title": "Canal E Cadencia",
+      "type": "array"
+    },
+    "raciocinio_resumido": {
+      "title": "Raciocinio Resumido",
+      "type": "string"
+    }
+  },
+  "required": [
+    "persona",
+    "angulo",
+    "achado_titulo",
+    "achado_pagina_url",
+    "gancho_justificativa",
+    "canal_e_cadencia",
+    "raciocinio_resumido"
+  ],
+  "title": "Estrategia",
+  "type": "object"
+}
