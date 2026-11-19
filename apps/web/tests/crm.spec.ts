@@ -172,7 +172,14 @@ test("ficha muda o estado pelo mesmo diálogo", async ({ page }) => {
 test("funil da tela inicial mostra os números reais", async ({ page }) => {
   await prepararPainel(page);
   await page.goto("/");
-  const funil = page.getByRole("list", { name: "Indicadores do funil" });
-  await expect(funil.getByRole("listitem").filter({ hasText: "Com decisores" })).toContainText("14");
+  const fases = page.getByRole("list", { name: "Fases do funil" });
+  // NOVO (1) + PESQUISANDO (2) somam na fase "Pesquisando"
+  await expect(fases.getByRole("listitem").filter({ hasText: "Pesquisando" })).toContainText("3");
+  await expect(fases.getByRole("listitem").filter({ hasText: "Preparando abordagem" })).toContainText("6");
+  // Cartões de ação aparecem só quando há algo a fazer, sempre com rótulo escrito
+  await expect(page.getByText("Pronto para avançar")).toBeVisible();
+  await expect(page.getByText("Precisa de decisão")).toBeVisible();
+  await expect(page.getByText("Fora do funil principal")).toBeVisible();
   await expect(page.getByRole("link", { name: "Abrir o CRM" })).toHaveAttribute("href", "/crm");
+  await semViolacoes(page);
 });

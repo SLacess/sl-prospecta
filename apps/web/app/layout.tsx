@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
 import { NavSessao } from "./nav-sessao";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
   title: "SL Prospecta — Sinal Link",
@@ -11,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={inter.variable}>
       <body>
         <a className="skip-link" href="#conteudo">
           Pular para o conteúdo
@@ -35,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <footer className="hint" style={{ textAlign: "center", padding: "2rem 1rem" }}>
-          SL Prospecta v0.3 · Fase 2 — Qualificação, decisores e lote
+          SL Prospecta v0.3 · Fase 3 — Abordagem com aprovação humana
         </footer>
       </body>
     </html>

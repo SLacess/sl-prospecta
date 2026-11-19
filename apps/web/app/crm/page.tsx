@@ -244,7 +244,15 @@ export default function Crm() {
                             <dl className="dados-cartao">
                               <div>
                                 <dt>Score</dt>
-                                <dd>{c.score !== null ? `${c.score} · ${c.rotulo_faixa ?? "sem faixa"}` : "—"}</dd>
+                                <dd>
+                                  {c.score !== null ? (
+                                    <span className={`pill ${c.faixa ?? "neutro"}`}>
+                                      {c.score} · {c.rotulo_faixa ?? "sem faixa"}
+                                    </span>
+                                  ) : (
+                                    "—"
+                                  )}
+                                </dd>
                               </div>
                               <div>
                                 <dt>Acessibilidade</dt>

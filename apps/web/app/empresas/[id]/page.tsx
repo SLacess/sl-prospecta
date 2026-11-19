@@ -20,6 +20,7 @@ import {
 import { DecisoresDaEmpresa } from "./decisores";
 import { QualificacaoDaEmpresa } from "./qualificacao";
 import { RevisaoAuditoria } from "./revisao";
+import { SequenciaDaEmpresa } from "./sequencia";
 
 const TEMA: Record<string, string> = {
   inclusao: "Inclusão",
@@ -199,6 +200,9 @@ export default function FichaDoProspect() {
 
       {ficha.qualificacao && <QualificacaoDaEmpresa qualificacao={ficha.qualificacao} />}
       {ficha.qualificacao && <DecisoresDaEmpresa decisores={ficha.decisores ?? []} />}
+      {ficha.sequencias && ficha.sequencias.length > 0 && (
+        <SequenciaDaEmpresa sequencias={ficha.sequencias} />
+      )}
 
       <section className="card acoes-ficha" aria-labelledby="titulo-relatorio" style={{ marginTop: "1.5rem" }}>
         <h2 id="titulo-relatorio" style={{ marginTop: 0 }}>Mini-relatório</h2>

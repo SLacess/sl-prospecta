@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.artefatos import Armazenamento, chave_de, chave_relatorio, get_armazenamento
 from app.db import get_db
 from app.deps import get_current_user
-from app.models import Auditoria, Contato, Empresa, Evento, Papel, Usuario
+from app.models import Auditoria, Contato, Empresa, Evento, Papel, Sequencia, Toque, Usuario
 from app.routers.crm import DestinoOut, destinos_out
 from app.routers.prospeccao import (
     AuditoriaResumoOut,
@@ -135,6 +135,77 @@ def _decisores(db: Session, empresa_id: uuid.UUID, papel: Papel) -> list[Decisor
     ]
 
 
+class ToqueOut(BaseModel):
+    dia: int
+    canal: str
+    status: str  # planejada | rascunho
+    conteudo_sugerido: str
+    assunto: str | None
+    corpo: str | None
+    fatos_usados: list[str] | None
+    criterios_json: dict[str, int] | None
+    nota: int | None
+    aprovado: bool | None
+    motivo_critico: str | None
+    tentativas: int | None
+
+
+class SequenciaOut(BaseModel):
+    id: uuid.UUID
+    contato_nome: str
+    contato_area: str
+    persona: str
+    angulo: str
+    achado_titulo: str
+    achado_pagina_url: str
+    gancho_justificativa: str
+    toques: list[ToqueOut]
+
+
+def _sequencias(db: Session, empresa_id: uuid.UUID) -> list[SequenciaOut]:
+    linhas = db.execute(
+        select(Sequencia, Contato)
+        .join(Contato, Contato.id == Sequencia.contato_id)
+        .where(Sequencia.empresa_id == empresa_id)
+        .order_by(Contato.nome)
+    ).all()
+    resultado = []
+    for seq, contato in linhas:
+        toques = db.scalars(
+            select(Toque).where(Toque.sequencia_id == seq.id).order_by(Toque.dia)
+        ).all()
+        resultado.append(
+            SequenciaOut(
+                id=seq.id,
+                contato_nome=contato.nome,
+                contato_area=contato.area,
+                persona=seq.persona,
+                angulo=seq.angulo,
+                achado_titulo=seq.achado_titulo,
+                achado_pagina_url=seq.achado_pagina_url,
+                gancho_justificativa=seq.gancho_justificativa,
+                toques=[
+                    ToqueOut(
+                        dia=t.dia,
+                        canal=t.canal,
+                        status=t.status,
+                        conteudo_sugerido=t.conteudo_sugerido,
+                        assunto=t.assunto,
+                        corpo=t.corpo,
+                        fatos_usados=t.fatos_usados,
+                        criterios_json=t.criterios_json,
+                        nota=t.nota,
+                        aprovado=t.aprovado,
+                        motivo_critico=t.motivo_critico,
+                        tentativas=t.tentativas,
+                    )
+                    for t in toques
+                ],
+            )
+        )
+    return resultado
+
+
 class FichaOut(BaseModel):
     empresa: EmpresaFichaOut
     dossie: DossieCompletoOut | None
@@ -142,6 +213,7 @@ class FichaOut(BaseModel):
     evidencias: list[EvidenciaOut]
     qualificacao: QualificacaoOut | None
     decisores: list[DecisorOut]
+    sequencias: list[SequenciaOut]
     destinos: list[DestinoOut]  # mudanças manuais de estado permitidas (ADR 0011)
     relatorio_disponivel: bool
     eventos: list[EventoOut]
@@ -241,6 +313,7 @@ def ficha(
         evidencias=_evidencias(auditoria, empresa.dominio),
         qualificacao=ultima_qualificacao(db, empresa_id),
         decisores=_decisores(db, empresa_id, user.papel),
+        sequencias=_sequencias(db, empresa_id),
         destinos=destinos_out(empresa.estado),
         relatorio_disponivel=analisada
         and armazenamento.existe(chave_relatorio(empresa_id, auditoria.id, "pdf")),
