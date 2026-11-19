@@ -23,38 +23,51 @@ parte deste runbook — citados aqui só para você saber o que vem depois do aq
 > domínio principal depois de começar a enviar pelo subdomínio, pare o envio e volte a avaliar um domínio
 > separado.
 
-- Crie o subdomínio `prospeccao.acessibilizardigital.com.br` (ou nome parecido) — não precisa registrar nada
-  novo, é um registro DNS dentro do domínio que você já tem.
-- Não aponte esse subdomínio para o site do Acessibilizar Digital — ele só existe para e-mail; pode ficar
-  sem página nenhuma (sem registro A/CNAME) ou com um redirecionamento simples para o site institucional.
+O DNS de `acessibilizardigital.com.br` está no **Cloudflare** (nameservers `carmelo`/`annalise.ns.cloudflare.com`).
+Hoje a raiz já usa esse DNS para e-mail de verdade — Cloudflare Email Routing (MX `route1-3.mx.cloudflare.net`,
+SPF `include:_spf.mx.cloudflare.net`) e Brevo (`_dmarc` reportando para `dmarc.brevo.com`). **Nenhum passo abaixo
+toca nesses registros** — tudo que você vai criar leva `prospeccao` no nome, nunca a raiz sozinha.
+
+- No painel do Cloudflare → o domínio → **DNS → Records**: não é preciso "criar" o subdomínio como uma coisa
+  separada — ele passa a existir no momento em que você cadastra o primeiro registro com `prospeccao` no nome
+  (ex.: o TXT de verificação do Google, no próximo passo).
+- Não crie registro **A/AAAA/CNAME** para `prospeccao` — sem isso, o subdomínio não abre como site (não precisa
+  abrir), só funciona para e-mail.
 
 ## 2. Google Workspace
-- Se o Acessibilizar Digital já tem Google Workspace no domínio raiz, adicione
-  `prospeccao.acessibilizardigital.com.br` como **domínio secundário dentro do mesmo Workspace**
-  (Admin console → Conta → Domínios → Adicionar domínio). Se não tiver Workspace nenhum ainda, crie um
-  Workspace novo e cadastre esse subdomínio como domínio dele.
-- Crie 2 ou 3 caixas com nomes de pessoas reais da equipe (ex.: `marcos@prospeccao.acessibilizardigital.com.br`),
-  nunca `contato@`/`vendas@` — remetente genérico cai em spam com mais facilidade.
-- Essas caixas vão para a variável `OUTREACH_MAILBOXES` no `.env` (uma lista separada por vírgula).
+Esse domínio não tem Workspace hoje (o e-mail da raiz é Cloudflare Email Routing). Crie um Workspace novo:
+
+1. Em [workspace.google.com](https://workspace.google.com), comece a assinatura informando
+   `prospeccao.acessibilizardigital.com.br` como domínio — não a raiz.
+2. O Google vai pedir para **verificar a propriedade do domínio**: ele dá um TXT tipo
+   `google-site-verification=...`. Cadastre no Cloudflare: **Type** `TXT`, **Name** `prospeccao`, **Content**
+   o valor que o Google deu, proxy desligado (TXT não proxeia mesmo, o Cloudflare já cuida disso).
+3. Depois de verificar, o Google mostra os **registros MX** a cadastrar — hoje é um único registro
+   `smtp.google.com`, prioridade 1 (versões mais antigas do Workspace mostram 5 registros `ASPMX.L.GOOGLE.COM`
+   e afins; siga o que a tela do seu Workspace mostrar). Cadastre no Cloudflare: **Type** `MX`, **Name**
+   `prospeccao`, **Content/Mail server** o que o Google deu, **Priority** o número que o Google deu.
+4. Crie 2 ou 3 caixas com nomes de pessoas reais da equipe (ex.:
+   `marcos@prospeccao.acessibilizardigital.com.br`), nunca `contato@`/`vendas@` — remetente genérico cai em
+   spam com mais facilidade.
+5. Essas caixas vão para a variável `OUTREACH_MAILBOXES` no `.env` (uma lista separada por vírgula).
 
 ## 3. DNS — SPF, DKIM, DMARC
-No painel do Workspace (**Admin console → Apps → Google Workspace → Gmail → Autenticação de e-mail**, com
-o domínio `prospeccao.acessibilizardigital.com.br` selecionado), gere os três registros e cadastre no DNS:
+Ainda no Admin console do Workspace novo (**Apps → Google Workspace → Gmail → Autenticação de e-mail**), gere
+os três registros e cadastre no Cloudflare:
 
-| Registro | Tipo | Nome | Valor |
+| Registro | Tipo | Name (Cloudflare) | Content |
 |---|---|---|---|
 | SPF | TXT | `prospeccao` | `v=spf1 include:_spf.google.com ~all` |
 | DKIM | TXT | `google._domainkey.prospeccao` | a chave que o Workspace gerar |
 | DMARC | TXT | `_dmarc.prospeccao` | `v=DMARC1; p=none; rua=mailto:dmarc@acessibilizardigital.com.br` |
 
-O nome do registro DMARC precisa ser `_dmarc.prospeccao`, não só `_dmarc` — senão você sobrescreve (ou lê) o
-DMARC do domínio raiz, que é exatamente o que se quer evitar aqui. Comece em `p=none` (só monitora) nas
-primeiras 2 semanas; depois que o volume subir sem rejeições, suba para `p=quarantine` antes da Fase 3.
-Nunca comece em `p=reject` — um erro de configuração descarta e-mails legítimos sem aviso.
-
-**Confira se o domínio raiz já tem DMARC publicado.** Se já tiver, bom sinal — a herança de subdomínio
-(tag `sp=`) não vai aplicar uma política mais fraca por acidente. Se não tiver nenhum DMARC hoje, isso por
-si só já é uma vulnerabilidade do domínio principal, independente da prospecção.
+O Cloudflare monta o nome completo a partir do que você digita em **Name** — `prospeccao` vira
+`prospeccao.acessibilizardigital.com.br`, e `_dmarc.prospeccao` vira
+`_dmarc.prospeccao.acessibilizardigital.com.br`. É crítico usar `_dmarc.prospeccao`, não `_dmarc` sozinho —
+a raiz já tem um `_dmarc` (Brevo, `p=none`) e sobrescrever esse registro quebraria o monitoramento que já
+existe lá. Comece seu DMARC em `p=none` (só monitora) nas primeiras 2 semanas; depois que o volume subir sem
+rejeições, suba para `p=quarantine` antes da Fase 3. Nunca comece em `p=reject` — um erro de configuração
+descarta e-mails legítimos sem aviso.
 
 ## 4. OAuth para o Mensageiro (Gmail API)
 O Mensageiro (Fase 3) envia pela Gmail API, não por SMTP direto — por isso o `.env` tem
@@ -96,9 +109,10 @@ Com várias caixas, o Mensageiro faz rodízio entre elas (§15.2) — o limite a
 - Só avance para a Fase 3 com reputação "Alta" ou "Média-alta" no Postmaster e sem alerta de spam ativo.
 
 ## 7. Checklist final
-- [ ] Subdomínio `prospeccao.acessibilizardigital.com.br` criado
-- [ ] Workspace com esse subdomínio cadastrado, 2–3 caixas com nomes reais
-- [ ] SPF, DKIM e DMARC publicados e validados
+- [ ] Workspace novo criado com `prospeccao.acessibilizardigital.com.br`, domínio verificado no Google
+- [ ] TXT de verificação e MX do Google cadastrados no Cloudflare (Name `prospeccao`)
+- [ ] 2–3 caixas criadas com nomes reais
+- [ ] SPF, DKIM e `_dmarc.prospeccao` (não `_dmarc` sozinho) publicados no Cloudflare e validados
 - [ ] Projeto no Google Cloud + OAuth client criado, credenciais no `.env`
 - [ ] Aquecimento rodando há pelo menos 2 semanas
 - [ ] Nota 9+ no mail-tester e reputação "Alta"/"Média-alta" no Postmaster Tools
