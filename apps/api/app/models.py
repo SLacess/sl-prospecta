@@ -330,6 +330,28 @@ class Supressao(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class CaixaEnvio(Base):
+    """Caixa de e-mail conectada por OAuth para o Mensageiro enviar (CONSTITUICAO §9, §15.2; ADR 0016).
+
+    `refresh_token_criptografado` nunca é devolvido por nenhuma rota — só o worker (Tarefa 3) descriptografa
+    para chamar a Gmail API. `limite_diario` começa com `DAILY_SEND_LIMIT_PER_MAILBOX`, mas é ajustável por
+    caixa (o aquecimento de cada caixa evolui em ritmo próprio — `infra/EMAIL-WARMUP.md`).
+    """
+
+    __tablename__ = "caixas_envio"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    nome_remetente: Mapped[str] = mapped_column(String(120))
+    refresh_token_criptografado: Mapped[str] = mapped_column(Text)
+    escopos: Mapped[str] = mapped_column(String(255))
+    ativa: Mapped[bool] = mapped_column(default=True)
+    limite_diario: Mapped[int] = mapped_column(Integer)
+    conectada_por: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuarios.id", ondelete="SET NULL"))
+    conectada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    erro_verificacao: Mapped[str | None] = mapped_column(Text)
+
+
 class Config(Base):
     """ICP, pesos do score, tabela de preços, limites, guia de voz (CONSTITUICAO §12.1)."""
 

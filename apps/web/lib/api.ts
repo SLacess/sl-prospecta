@@ -580,3 +580,15 @@ export interface Funil {
   com_decisores: number;
   reunioes: number;
 }
+
+// --- Caixas de envio conectadas (Mensageiro/Guardião — ADR 0016, retomada da Fase 3, Tarefa 4) ---
+
+export interface CaixaEnvio {
+  id: string;
+  email: string;
+  nome_remetente: string;
+  ativa: boolean;
+  limite_diario: number;
+  conectada_em: string;
+  erro_verificacao: string | null;
+}

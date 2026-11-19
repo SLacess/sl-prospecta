@@ -9,6 +9,7 @@ from app.queue import fechar_fila
 from app.routers import (
     auth,
     caixa_aprovacao,
+    caixas_envio,
     crm,
     ficha,
     governanca,
@@ -56,6 +57,7 @@ app.include_router(qualificacao.router)
 app.include_router(lotes.router)
 app.include_router(crm.router)
 app.include_router(caixa_aprovacao.router)
+app.include_router(caixas_envio.router)
 
 
 @app.get("/", include_in_schema=False)
