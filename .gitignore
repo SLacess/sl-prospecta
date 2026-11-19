@@ -23,6 +23,7 @@ npm-debug.log*
 data/
 backups/
 *.sqlite3
+tests/evals/relatorios/*.json
 
 # Sistema
 .DS_Store

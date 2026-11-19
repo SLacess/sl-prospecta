@@ -1,0 +1,43 @@
+{
+  "properties": {
+    "assunto": {
+      "title": "Assunto",
+      "type": "string"
+    },
+    "corpo": {
+      "title": "Corpo",
+      "type": "string"
+    },
+    "fatos_usados": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Fatos Usados",
+      "type": "array"
+    },
+    "angulo": {
+      "enum": [
+        "experiencia_cliente",
+        "inclusao_colaboradores_pcd",
+        "esg_reputacao",
+        "conformidade_legal",
+        "conversao_alcance_mercado"
+      ],
+      "title": "Angulo",
+      "type": "string"
+    },
+    "raciocinio_resumido": {
+      "title": "Raciocinio Resumido",
+      "type": "string"
+    }
+  },
+  "required": [
+    "assunto",
+    "corpo",
+    "fatos_usados",
+    "angulo",
+    "raciocinio_resumido"
+  ],
+  "title": "Redacao",
+  "type": "object"
+}

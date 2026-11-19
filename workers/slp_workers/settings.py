@@ -17,6 +17,7 @@ class WorkerConfig(BaseSettings):
 
     # IA — modelos nunca fixos no código de negócio (CONSTITUICAO §6). A chave vem de ANTHROPIC_API_KEY.
     model_analysis: str = "claude-sonnet-5-5"
+    model_strategy: str = "claude-opus-5-5"  # Estrategista e Redator (CONSTITUICAO §6, a partir da Fase 3)
     ai_refusal_fallback: bool = True
     usd_brl_rate: Decimal = Decimal("5.50")
     # Preço por milhão de tokens em US$ (entrada, saída). Sobrescreva com AI_PRICES_USD_PER_MTOK em JSON.
