@@ -3,6 +3,7 @@ import os
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
 os.environ["REDIS_URL"] = ""
 os.environ["JWT_SECRET"] = "test-secret"
+os.environ["FIELD_ENCRYPTION_KEY"] = "AYbba1QbcZUiOW62SVsEOoxiCCkZJT2xjNYOql22qFI="  # só para os testes
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -98,6 +99,12 @@ def _token(client, email):
 def vendedor_headers(client, db):
     _criar_usuario(db, "vendedor@exemplo.com", Papel.vendedor)
     return _token(client, "vendedor@exemplo.com")
+
+
+@pytest.fixture
+def admin_headers(client, db):
+    _criar_usuario(db, "admin2@exemplo.com", Papel.admin)
+    return _token(client, "admin2@exemplo.com")
 
 
 @pytest.fixture

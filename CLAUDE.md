@@ -60,11 +60,17 @@ cd apps/web && npm install && npm run dev
 ## Fase atual
 **Fase 3 — Abordagem com aprovação humana** (§19): Prompts versionados (guia de voz, Estrategista, Redator,
 Crítico) em `packages/prompts` com evals de 30 prospects de referência (`tests/evals`); geração da sequência
-de 6 toques por persona; Caixa de Aprovação (editar em linha, aprovar, rejeitar com motivo).
-**Sem Mensageiro/Guardião automático por ora (ADR 0014):** o texto aprovado é entregue para o vendedor enviar
-manualmente pela própria caixa de e-mail — não implemente envio automático, OAuth do Gmail nem disjuntores de
-bounce/spam sem pedido explícito. A Caixa de Aprovação precisa de alguma confirmação manual de envio (ex.:
-"marquei como enviado") para a linha do tempo do prospect não ficar sem esse evento.
+de 6 toques por persona; Caixa de Aprovação (editar em linha, aprovar, rejeitar com motivo, marcar como
+enviada).
+**Mensageiro/Guardião retomados (ADR 0016, supera parte da ADR 0014) — em andamento, 4 tarefas:**
+1. Caixa conectada por OAuth do Gmail (`caixas_envio`) — feito. Nenhum e-mail é enviado por aqui ainda; a
+   Caixa de Aprovação continua exatamente como está até a Tarefa 3.
+2. Guardião (supressão, opt-out, janela de horário, limite diário, checagem leve com `claude-haiku-5-5`) —
+   planejado.
+3. Mensageiro (envio pela Gmail API, job periódico, log de envio, muda `Toque.enviado_em` e o estado do
+   prospect) — planejado.
+4. Disjuntores de envio (bounce automático; spam/resposta negativa só manual por ora, sem Postmaster/Leitor
+   de Respostas) e botão "Pausar tudo" (§13) — planejado.
 Critério para avançar: 50 e-mails aprovados por Marcos com menos de 20% de texto alterado.
 Fase 2 concluída em 18/11/2026 (lote de 100, score e decisores coerentes — ver ADR 0015).
 Próxima: **Fase 4 — Conversa, agenda e painel**. Não antecipe funcionalidades de fases futuras sem pedido explícito.
