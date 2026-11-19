@@ -11,30 +11,50 @@ erro de veracidade do Crítico numa mensagem já enviada). Esses disjuntores sã
 parte deste runbook — citados aqui só para você saber o que vem depois do aquecimento.
 
 ## 1. Domínio secundário
-- Registre um domínio parecido com o principal, nunca o principal (ex.: `sinallink-acessibilidade.com.br`
-  se o principal for `leadfactory.com.br`). Um domínio novo queimado por spam não compromete `app.`/`api.`/`diagnostico.`.
-- Aponte esse domínio para uma página simples que redirecione para o site institucional da Sinal Link —
-  um domínio de prospecção sem nenhum conteúdo parece spam para os filtros.
+**Decisão (2026-11-18):** usar um subdomínio dedicado do `acessibilizardigital.com.br` só para prospecção
+(ex.: `prospeccao.acessibilizardigital.com.br`), em vez de um domínio totalmente novo.
+
+> **Risco que isso não elimina, só reduz:** `acessibilizardigital.com.br` já é um domínio ativo, com site e
+> provavelmente e-mail de verdade. O Gmail/Outlook isolam parte da reputação por subdomínio (registro DKIM
+> e IP de envio próprios), mas sinais de spam no nível do domínio organizacional (a raiz) tendem a vazar
+> para o subdomínio e vice-versa — isso contraria o §15.2 da Constituição, que pede um domínio **exclusivo**.
+> Se o aquecimento dar problema (volume alto demais, lista ruim, reclamação de spam), existe chance real de
+> isso respingar na entrega de e-mails reais do Acessibilizar Digital. Se notar qualquer queda de entrega do
+> domínio principal depois de começar a enviar pelo subdomínio, pare o envio e volte a avaliar um domínio
+> separado.
+
+- Crie o subdomínio `prospeccao.acessibilizardigital.com.br` (ou nome parecido) — não precisa registrar nada
+  novo, é um registro DNS dentro do domínio que você já tem.
+- Não aponte esse subdomínio para o site do Acessibilizar Digital — ele só existe para e-mail; pode ficar
+  sem página nenhuma (sem registro A/CNAME) ou com um redirecionamento simples para o site institucional.
 
 ## 2. Google Workspace
-- Crie um Workspace novo nesse domínio secundário.
-- Crie 2 ou 3 caixas com nomes de pessoas reais da equipe (ex.: `marcos@`, `jose@`), nunca `contato@`/`vendas@` —
-  remetente genérico cai em spam com mais facilidade.
+- Se o Acessibilizar Digital já tem Google Workspace no domínio raiz, adicione
+  `prospeccao.acessibilizardigital.com.br` como **domínio secundário dentro do mesmo Workspace**
+  (Admin console → Conta → Domínios → Adicionar domínio). Se não tiver Workspace nenhum ainda, crie um
+  Workspace novo e cadastre esse subdomínio como domínio dele.
+- Crie 2 ou 3 caixas com nomes de pessoas reais da equipe (ex.: `marcos@prospeccao.acessibilizardigital.com.br`),
+  nunca `contato@`/`vendas@` — remetente genérico cai em spam com mais facilidade.
 - Essas caixas vão para a variável `OUTREACH_MAILBOXES` no `.env` (uma lista separada por vírgula).
 
 ## 3. DNS — SPF, DKIM, DMARC
-No painel do Workspace (**Admin console → Apps → Google Workspace → Gmail → Autenticação de e-mail**), gere os
-três registros e cadastre no DNS do domínio secundário:
+No painel do Workspace (**Admin console → Apps → Google Workspace → Gmail → Autenticação de e-mail**, com
+o domínio `prospeccao.acessibilizardigital.com.br` selecionado), gere os três registros e cadastre no DNS:
 
-| Registro | Tipo | Valor |
-|---|---|---|
-| SPF | TXT (raiz) | `v=spf1 include:_spf.google.com ~all` |
-| DKIM | TXT (`google._domainkey`) | a chave que o Workspace gerar |
-| DMARC | TXT (`_dmarc`) | `v=DMARC1; p=none; rua=mailto:dmarc@SEU_DOMINIO_SECUNDARIO` |
+| Registro | Tipo | Nome | Valor |
+|---|---|---|---|
+| SPF | TXT | `prospeccao` | `v=spf1 include:_spf.google.com ~all` |
+| DKIM | TXT | `google._domainkey.prospeccao` | a chave que o Workspace gerar |
+| DMARC | TXT | `_dmarc.prospeccao` | `v=DMARC1; p=none; rua=mailto:dmarc@acessibilizardigital.com.br` |
 
-Comece o DMARC em `p=none` (só monitora) nas primeiras 2 semanas; depois que o volume subir sem rejeições,
-suba para `p=quarantine` antes da Fase 3. Nunca comece em `p=reject` — um erro de configuração descarta
-e-mails legítimos sem aviso.
+O nome do registro DMARC precisa ser `_dmarc.prospeccao`, não só `_dmarc` — senão você sobrescreve (ou lê) o
+DMARC do domínio raiz, que é exatamente o que se quer evitar aqui. Comece em `p=none` (só monitora) nas
+primeiras 2 semanas; depois que o volume subir sem rejeições, suba para `p=quarantine` antes da Fase 3.
+Nunca comece em `p=reject` — um erro de configuração descarta e-mails legítimos sem aviso.
+
+**Confira se o domínio raiz já tem DMARC publicado.** Se já tiver, bom sinal — a herança de subdomínio
+(tag `sp=`) não vai aplicar uma política mais fraca por acidente. Se não tiver nenhum DMARC hoje, isso por
+si só já é uma vulnerabilidade do domínio principal, independente da prospecção.
 
 ## 4. OAuth para o Mensageiro (Gmail API)
 O Mensageiro (Fase 3) envia pela Gmail API, não por SMTP direto — por isso o `.env` tem
@@ -76,8 +96,8 @@ Com várias caixas, o Mensageiro faz rodízio entre elas (§15.2) — o limite a
 - Só avance para a Fase 3 com reputação "Alta" ou "Média-alta" no Postmaster e sem alerta de spam ativo.
 
 ## 7. Checklist final
-- [ ] Domínio secundário registrado e redirecionando para o site institucional
-- [ ] Workspace criado, 2–3 caixas com nomes reais
+- [ ] Subdomínio `prospeccao.acessibilizardigital.com.br` criado
+- [ ] Workspace com esse subdomínio cadastrado, 2–3 caixas com nomes reais
 - [ ] SPF, DKIM e DMARC publicados e validados
 - [ ] Projeto no Google Cloud + OAuth client criado, credenciais no `.env`
 - [ ] Aquecimento rodando há pelo menos 2 semanas
