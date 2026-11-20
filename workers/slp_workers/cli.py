@@ -12,6 +12,8 @@ Uso (no contêiner do worker):
     python -m slp_workers.cli gerar-sequencia --empresa <id> [--listar]
     python -m slp_workers.cli avaliar-guardiao --pendentes [--listar]  # checagem final antes do envio
     python -m slp_workers.cli avaliar-guardiao --toque <id> [--listar]
+    python -m slp_workers.cli enviar --pendentes [--listar]  # Mensageiro: envia pela caixa conectada
+    python -m slp_workers.cli enviar --toque <id> [--listar]
 
 `retomar` serve para empresas que ficaram para trás numa mudança de versão: por exemplo, as que já
 tinham dossiê (PESQUISANDO) antes do Auditor, ou auditoria sem nota antes do Auditor com IA.
@@ -400,6 +402,85 @@ def avaliar_guardiao(toque_id: str | None, listar: bool) -> int:
     return asyncio.run(_avaliar_guardioes(alvo))
 
 
+def _para_enviar(toque_id: str | None) -> list:
+    from sqlalchemy import or_
+
+    from slp_workers.db import contatos, sequencias, toques
+
+    engine = make_engine(get_config().database_url)
+    try:
+        with engine.connect() as conn:
+            consulta = select(
+                toques.c.id, toques.c.dia, contatos.c.nome.label("contato_nome")
+            ).join(sequencias, sequencias.c.id == toques.c.sequencia_id).join(
+                contatos, contatos.c.id == sequencias.c.contato_id
+            )
+            if toque_id:
+                consulta = consulta.where(toques.c.id == toque_id)
+            else:
+                consulta = consulta.where(
+                    toques.c.decisao_humana == "aprovado",
+                    toques.c.enviado_em.is_(None),
+                    toques.c.canal == "email",
+                    or_(toques.c.guardiao_resultado.is_(None), toques.c.guardiao_resultado == "aprovado"),
+                )
+            return conn.execute(consulta.order_by(contatos.c.nome)).all()
+    finally:
+        engine.dispose()
+
+
+async def _enviar_toques(alvo: list) -> int:
+    from slp_workers.llm import ClienteAnthropic
+    from slp_workers.orchestrator.mensageiro import DependenciasMensageiro, Mensageiro
+    from slp_workers.outreach.gmail import ClienteGmail
+
+    config = get_config()
+    engine = make_engine(config.database_url)
+    gmail = ClienteGmail(config.google_oauth_client_id, config.google_oauth_client_secret)
+    deps = DependenciasMensageiro(engine=engine, ia=ClienteAnthropic(config), config=config, gmail=gmail)
+    contagem: dict[str, int] = {}
+    try:
+        for t in alvo:
+            resultado = await Mensageiro(deps, t.id).executar()
+            rotulo = resultado or "sem_pendencia"
+            contagem[rotulo] = contagem.get(rotulo, 0) + 1
+            print(f"{rotulo:<22} dia {t.dia}  {t.contato_nome}")
+    finally:
+        engine.dispose()
+    for rotulo, n in contagem.items():
+        print(f"{n} {rotulo}")
+    return 0
+
+
+def enviar(toque_id: str | None, listar: bool) -> int:
+    from slp_workers.db import caixas_envio
+
+    alvo = _para_enviar(toque_id)
+    for t in alvo:
+        print(f"dia {t.dia}  {t.contato_nome}")
+    if listar:
+        engine = make_engine(get_config().database_url)
+        try:
+            with engine.connect() as conn:
+                caixas = conn.execute(
+                    select(caixas_envio.c.email, caixas_envio.c.limite_diario).where(
+                        caixas_envio.c.ativa.is_(True)
+                    )
+                ).all()
+        finally:
+            engine.dispose()
+        if not caixas:
+            print("Nenhuma caixa de envio ativa conectada — nada seria enviado (ADR 0016).")
+        else:
+            print(
+                f"{len(caixas)} caixa(s) ativa(s): "
+                + ", ".join(f"{c.email} (até {c.limite_diario}/dia)" for c in caixas)
+            )
+        print(f"{len(alvo)} toque(s) pronto(s) para o Mensageiro tentar enviar.")
+        return 0
+    return asyncio.run(_enviar_toques(alvo))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="slp_workers.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -438,6 +519,13 @@ def main() -> int:
     )
     grupo_g.add_argument("--toque", help="Só este toque (id), reavalia mesmo se já tiver resultado")
     g.add_argument("--listar", action="store_true", help="Só lista, sem avaliar")
+    m = sub.add_parser("enviar", help="Mensageiro: envia pela caixa conectada (ADR 0016, Tarefa 3)")
+    grupo_m = m.add_mutually_exclusive_group(required=True)
+    grupo_m.add_argument(
+        "--pendentes", action="store_true", help="Toques aprovados, não enviados, canal e-mail"
+    )
+    grupo_m.add_argument("--toque", help="Só este toque (id)")
+    m.add_argument("--listar", action="store_true", help="Só lista as caixas ativas e os toques, sem enviar")
     args = parser.parse_args()
     if args.cmd == "retomar":
         return retomar(args.listar)
@@ -451,6 +539,8 @@ def main() -> int:
         return gerar_sequencia(args.empresa, args.listar)
     if args.cmd == "avaliar-guardiao":
         return avaliar_guardiao(args.toque, args.listar)
+    if args.cmd == "enviar":
+        return enviar(args.toque, args.listar)
     return 1
 
 

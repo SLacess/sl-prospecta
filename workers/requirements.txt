@@ -10,3 +10,4 @@ minio==7.2.*  # prints da auditoria (o Auditor com IA lê os prints no worker pr
 jinja2==3.1.*
 weasyprint==66.*  # PDF do mini-relatório; precisa de Pango no sistema (Dockerfile)
 dnspython==2.7.*  # registro MX na validação de e-mail dos decisores
+cryptography==43.*  # descriptografar o refresh_token das caixas de envio (Mensageiro, ADR 0016)

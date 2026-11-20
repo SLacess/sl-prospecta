@@ -357,6 +357,27 @@ class CaixaEnvio(Base):
     erro_verificacao: Mapped[str | None] = mapped_column(Text)
 
 
+class Envio(Base):
+    """Log de envio do Mensageiro (CONSTITUICAO §9, §15.2; ADR 0016, Tarefa 3) — só o worker grava.
+
+    Um envio por toque (índice único em `toque_id`): é a partir daqui que o Mensageiro calcula o rodízio
+    entre caixas e o limite diário de cada uma.
+    """
+
+    __tablename__ = "envios"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
+    toque_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("toques.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    caixa_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("caixas_envio.id", ondelete="SET NULL"), index=True
+    )
+    destinatario: Mapped[str] = mapped_column(String(255))
+    gmail_message_id: Mapped[str] = mapped_column(String(100))
+    enviado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Config(Base):
     """ICP, pesos do score, tabela de preços, limites, guia de voz (CONSTITUICAO §12.1)."""
 
