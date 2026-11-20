@@ -76,8 +76,13 @@ enviada).
    `marcar_enviado` já fazia. Dispara manualmente via `python -m slp_workers.cli enviar` — **sem job
    periódico automático** até a Tarefa 4 existir (disjuntores/"Pausar tudo"); ver ADR 0016. "Marcar como
    enviada" continua na Caixa de Aprovação como fallback manual (sem caixa conectada, ou envio falhou).
-4. Disjuntores de envio (bounce automático; spam/resposta negativa só manual por ora, sem Postmaster/Leitor
-   de Respostas) e botão "Pausar tudo" (§13) — planejado.
+4. Disjuntores de envio — feito. Bounce automático: um cron do worker (a cada 15min) lê `gmail.readonly`
+   em cada caixa ativa, soma devoluções contra os envios das últimas 24h e, acima de 3% (CONSTITUICAO
+   §13), pausa tudo; cada devolução também suprime o endereço que rejeitou (§15.1). Reclamação de spam é
+   só manual por ora (sem Postmaster Tools/Leitor de Respostas — lacuna aceita na ADR 0016): botão
+   "Reportar reclamação de spam" no painel, mesmo efeito do botão vermelho "Pausar tudo", sempre visível
+   para qualquer pessoa logada. Só um admin retoma, depois de investigar. Estado em `config` (chave
+   "operacao"); também pelo terminal: `python -m slp_workers.cli pausar "motivo"` / `retomar-envio`.
 Critério para avançar: 50 e-mails aprovados por Marcos com menos de 20% de texto alterado.
 Fase 2 concluída em 18/11/2026 (lote de 100, score e decisores coerentes — ver ADR 0015).
 Próxima: **Fase 4 — Conversa, agenda e painel**. Não antecipe funcionalidades de fases futuras sem pedido explícito.

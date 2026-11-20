@@ -595,3 +595,13 @@ export interface CaixaEnvio {
   conectada_em: string;
   erro_verificacao: string | null;
 }
+
+// --- Disjuntores de envio e "Pausar tudo" (CONSTITUICAO §13; ADR 0016, Tarefa 4) ---
+
+export interface EstadoOperacao {
+  pausado: boolean;
+  motivo: string | null;
+  pausado_em: string | null;
+  pausado_por_nome: string | null;
+  origem: "manual" | "spam_reportado" | "disjuntor_bounce" | null;
+}

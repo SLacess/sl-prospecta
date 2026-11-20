@@ -128,6 +128,22 @@ def _deps(engine, config, gmail=None, ia=None) -> DependenciasMensageiro:
     )
 
 
+def test_nao_envia_se_operacao_pausada(engine, config):
+    from slp_workers.orchestrator.operacao import pausar
+
+    empresa_id = inserir_empresa(engine, estado="PREPARANDO_ABORDAGEM")
+    contato_id = _inserir_contato(engine, empresa_id)
+    toque_id = _inserir_toque(engine, empresa_id, contato_id)
+    _inserir_caixa(engine)
+    pausar(engine, motivo="teste", origem="manual")
+    gmail = GmailFalso()
+
+    resultado = asyncio.run(Mensageiro(_deps(engine, config, gmail=gmail), toque_id).executar())
+
+    assert resultado == "operacao_pausada"
+    assert gmail.envios == []
+
+
 def test_nada_a_fazer_se_nao_aprovado(engine, config):
     empresa_id = inserir_empresa(engine, estado="PREPARANDO_ABORDAGEM")
     contato_id = _inserir_contato(engine, empresa_id)
