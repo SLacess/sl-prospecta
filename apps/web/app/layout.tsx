@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
+import { BarraOperacao } from "./barra-operacao";
 import { NavSessao } from "./nav-sessao";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </ul>
           </nav>
         </header>
+        <BarraOperacao />
         <main id="conteudo" tabIndex={-1}>
           {children}
         </main>

@@ -15,6 +15,7 @@ from app.routers import (
     governanca,
     health,
     lotes,
+    operacao,
     prospeccao,
     qualificacao,
     revisao,
@@ -58,6 +59,7 @@ app.include_router(lotes.router)
 app.include_router(crm.router)
 app.include_router(caixa_aprovacao.router)
 app.include_router(caixas_envio.router)
+app.include_router(operacao.router)
 
 
 @app.get("/", include_in_schema=False)

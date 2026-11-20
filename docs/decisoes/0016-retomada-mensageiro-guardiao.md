@@ -37,6 +37,11 @@ conexão real é testada quando o Workspace existir.
    automáticos ainda. A Tarefa 4 implementa bounce automático (lendo a própria caixa) e um botão manual de
    "reportar reclamação de spam" que pausa tudo na hora — não um disjuntor automático de spam/resposta
    negativa. Revisitar quando a Fase 4 (Leitor de Respostas) ou o Postmaster Tools entrarem.
+   - **O disjuntor de bounce também suprime** (CONSTITUICAO §15.1): ao detectar uma devolução, extrai o
+     endereço do corpo da notificação (via `snippet` do Gmail — aproximação, sem Postmaster Tools) e, se
+     bater com um destinatário recente da mesma caixa, adiciona à lista de supressão. Decisão confirmada
+     com Marcos ao iniciar a Tarefa 4, para não insistir num e-mail morto enquanto a Fase 4 não resolve
+     isso de forma mais robusta.
 
 ## Atualização (Tarefa 3)
 
@@ -45,6 +50,14 @@ O envio real pela Gmail API **não roda num job periódico automático** — dis
 pré-visualizável com `--listar`. Decisão confirmada com Marcos ao iniciar a Tarefa 3: sem os disjuntores de
 envio da Tarefa 4 ("Pausar tudo" incluído), um job automático enviaria e-mails reais sem rede de segurança
 nenhuma. O disparo manual é a rede de segurança até a Tarefa 4 existir; revisitar automatizar depois dela.
+
+## Atualização (Tarefa 4 — fecha a retomada)
+
+Diferente da Tarefa 3 (envio manual via CLI), o disjuntor de bounce roda sozinho num cron do worker a
+cada 15 minutos: ele só lê a caixa e, na pior hipótese, pausa o envio — nunca manda e-mail, então
+automatizar aqui não tem o mesmo risco. "Pausar tudo" e "reportar spam" ficam disponíveis a qualquer
+pessoa logada (admin ou vendedor) — é um freio de emergência, não deve esperar um admin estar disponível;
+só retomar exige admin, por ser uma decisão deliberada depois de investigar o motivo.
 
 ## Consequências
 

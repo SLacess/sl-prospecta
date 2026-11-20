@@ -1,9 +1,10 @@
 """Mensageiro — envio real pela caixa conectada (CONSTITUICAO §9, §15.2; ADR 0016, Fase 3 Tarefa 4).
 
 Dispara manualmente via `python -m slp_workers.cli enviar` (mesmo padrão de gerar-sequencia e
-avaliar-guardiao): Marcos decide quando rodar, sempre podendo pré-visualizar com --listar antes. Sem
-disjuntor de bounce nem "Pausar tudo" ainda (Tarefa 4 do plano), o disparo manual é a única rede de
-segurança por ora — por isso o Mensageiro não roda num job periódico automático.
+avaliar-guardiao): Marcos decide quando rodar, sempre podendo pré-visualizar com --listar antes. O disparo
+manual é uma rede de segurança a mais além dos disjuntores da Tarefa 4 (bounce automático, "Pausar tudo")
+— por isso o Mensageiro não roda num job periódico automático; a primeira coisa que ele checa é se a
+operação está pausada (`orchestrator/operacao.py`), e nesse caso não faz nada.
 
 Para cada toque aprovado, não enviado e de canal e-mail:
 1. roda o Guardião se ele ainda não tiver avaliado o texto final (mesma checagem do `avaliar-guardiao`
@@ -36,6 +37,7 @@ from slp_workers.db import caixas_envio, contatos, empresas, envios, registrar_e
 from slp_workers.llm import ClienteIA
 from slp_workers.orchestrator.budget import inicio_do_dia
 from slp_workers.orchestrator.guardiao import DependenciasGuardiao, Guardiao
+from slp_workers.orchestrator.operacao import esta_pausado
 from slp_workers.outreach.gmail import ClienteGmail, ErroGmail
 from slp_workers.settings import WorkerConfig
 
@@ -43,7 +45,8 @@ PREPARANDO_ABORDAGEM = "PREPARANDO_ABORDAGEM"
 EM_SEQUENCIA = "EM_SEQUENCIA"
 
 ResultadoMensageiro = Literal[
-    "enviado", "bloqueado_pelo_guardiao", "sem_caixa_disponivel", "erro_de_caixa", "erro_de_envio"
+    "enviado", "bloqueado_pelo_guardiao", "sem_caixa_disponivel", "erro_de_caixa", "erro_de_envio",
+    "operacao_pausada",
 ]
 
 
@@ -147,6 +150,9 @@ class Mensageiro:
     # --- fluxo ------------------------------------------------------------
 
     async def executar(self) -> ResultadoMensageiro | None:
+        if await asyncio.to_thread(esta_pausado, self.deps.engine):
+            return "operacao_pausada"
+
         linha = await asyncio.to_thread(self._contexto)
         if (
             linha is None

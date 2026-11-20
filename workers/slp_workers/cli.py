@@ -14,6 +14,9 @@ Uso (no contêiner do worker):
     python -m slp_workers.cli avaliar-guardiao --toque <id> [--listar]
     python -m slp_workers.cli enviar --pendentes [--listar]  # Mensageiro: envia pela caixa conectada
     python -m slp_workers.cli enviar --toque <id> [--listar]
+    python -m slp_workers.cli verificar-bounce  # disjuntor de bounce (roda sozinho num cron a cada 15min)
+    python -m slp_workers.cli pausar "motivo"   # botão "Pausar tudo" via terminal (emergência)
+    python -m slp_workers.cli retomar-envio     # libera o Mensageiro depois de investigar a pausa
 
 `retomar` serve para empresas que ficaram para trás numa mudança de versão: por exemplo, as que já
 tinham dossiê (PESQUISANDO) antes do Auditor, ou auditoria sem nota antes do Auditor com IA.
@@ -481,6 +484,52 @@ def enviar(toque_id: str | None, listar: bool) -> int:
     return asyncio.run(_enviar_toques(alvo))
 
 
+def verificar_bounce() -> int:
+    from slp_workers.orchestrator.bounce import DependenciasBounce, DisjuntorBounce
+    from slp_workers.outreach.gmail import ClienteGmail
+
+    config = get_config()
+    engine = make_engine(config.database_url)
+    gmail = ClienteGmail(config.google_oauth_client_id, config.google_oauth_client_secret)
+    try:
+        disjuntor = DisjuntorBounce(DependenciasBounce(engine=engine, gmail=gmail))
+        resultado = disjuntor.executar()
+    finally:
+        engine.dispose()
+    for erro in disjuntor.caixas_com_erro:
+        print(f"caixa com erro  {erro}")
+    print(f"{resultado.total_bounces} devolução(ões) de {resultado.total_envios} envio(s) nas últimas 24h.")
+    if resultado.suprimidos:
+        print(f"{len(resultado.suprimidos)} endereço(s) suprimido(s): {', '.join(resultado.suprimidos)}")
+    if resultado.pausou:
+        print("Disjuntor de bounce acionado: operação pausada.")
+    return 0
+
+
+def pausar(motivo: str) -> int:
+    from slp_workers.orchestrator.operacao import pausar as pausar_operacao
+
+    engine = make_engine(get_config().database_url)
+    try:
+        pausar_operacao(engine, motivo=motivo, origem="manual")
+    finally:
+        engine.dispose()
+    print(f"Operação pausada: {motivo}")
+    return 0
+
+
+def retomar_envio() -> int:
+    from slp_workers.orchestrator.operacao import retomar as retomar_operacao
+
+    engine = make_engine(get_config().database_url)
+    try:
+        retomar_operacao(engine)
+    finally:
+        engine.dispose()
+    print("Operação de envio retomada.")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="slp_workers.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -526,6 +575,12 @@ def main() -> int:
     )
     grupo_m.add_argument("--toque", help="Só este toque (id)")
     m.add_argument("--listar", action="store_true", help="Só lista as caixas ativas e os toques, sem enviar")
+    sub.add_parser(
+        "verificar-bounce", help="Disjuntor de bounce: lê as caixas, suprime e pausa se passar de 3%%"
+    )
+    pa = sub.add_parser("pausar", help="Botão 'Pausar tudo' via terminal (CONSTITUICAO §13)")
+    pa.add_argument("motivo", help="Por que está pausando — aparece no painel")
+    sub.add_parser("retomar-envio", help="Libera o Mensageiro depois de investigar a pausa")
     args = parser.parse_args()
     if args.cmd == "retomar":
         return retomar(args.listar)
@@ -541,6 +596,12 @@ def main() -> int:
         return avaliar_guardiao(args.toque, args.listar)
     if args.cmd == "enviar":
         return enviar(args.toque, args.listar)
+    if args.cmd == "verificar-bounce":
+        return verificar_bounce()
+    if args.cmd == "pausar":
+        return pausar(args.motivo)
+    if args.cmd == "retomar-envio":
+        return retomar_envio()
     return 1
 
 

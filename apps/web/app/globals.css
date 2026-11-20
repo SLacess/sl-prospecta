@@ -95,6 +95,20 @@ nav a[aria-current="page"] { font-weight: 700; }
 
 main { max-width: 960px; margin: 0 auto; padding: 2rem 1rem 4rem; }
 
+/* Botão "Pausar tudo" (CONSTITUICAO §13; ADR 0016, Tarefa 4) — sempre visível, discreto quando a
+   operação não está pausada, destacado (mesma matiz de "quente") quando está. */
+.barra-operacao {
+  padding: 0.6rem 1.25rem;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.barra-operacao.pausada {
+  background: var(--quente-bg);
+  color: var(--quente-fg);
+  font-weight: 600;
+}
+.barra-operacao.pausada button { font-weight: 700; }
+
 h1 { font-size: 1.75rem; margin: 0 0 0.5rem; line-height: 1.25; }
 h2 { font-size: 1.2rem; margin: 2rem 0 0.75rem; }
 p.lead { color: var(--text-muted); margin-top: 0; }

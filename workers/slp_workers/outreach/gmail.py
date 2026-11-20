@@ -1,20 +1,23 @@
-"""Cliente Gmail para o Mensageiro enviar e-mails (CONSTITUICAO §9, §15.2; ADR 0016, Tarefa 3).
+"""Cliente Gmail para o Mensageiro enviar e-mails e para o disjuntor de bounce ler devoluções
+(CONSTITUICAO §9, §13, §15.2; ADR 0016, Tarefas 3 e 4).
 
 httpx puro, no mesmo espírito do `app/google_oauth.py` da API e do `web/apollo.py` do worker: client fino,
 transporte injetável para os testes, exceção de domínio própria em vez de deixar escapar `httpx.HTTPError`.
 
 O access_token da conexão original (Tarefa 1) expira em ~1h e não é guardado; a cada rodada o Mensageiro
-renova um novo a partir do refresh_token (que não expira, a menos que a caixa seja desconectada no
-myaccount.google.com — é esse o erro que `renovar_access_token` sinaliza).
+(ou o disjuntor de bounce) renova um novo a partir do refresh_token (que não expira, a menos que a caixa
+seja desconectada no myaccount.google.com — é esse o erro que `renovar_access_token` sinaliza).
 """
 
 import base64
+from datetime import datetime
 from email.message import EmailMessage
 
 import httpx
 
 URL_TOKEN = "https://oauth2.googleapis.com/token"  # noqa: S105 (endpoint público, não é segredo)
-URL_ENVIO = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
+URL_MENSAGENS = "https://gmail.googleapis.com/gmail/v1/users/me/messages"
+URL_ENVIO = f"{URL_MENSAGENS}/send"
 
 
 class ErroGmail(Exception):
@@ -79,3 +82,28 @@ class ClienteGmail:
         if r.status_code != 200:
             raise ErroGmail(f"o Gmail recusou o envio (status {r.status_code})")
         return r.json()["id"]
+
+    def listar_bounces(self, access_token: str, *, desde: datetime) -> list[str]:
+        """Devolve o `snippet` (prévia em texto puro, já decodificada pelo Gmail) de cada notificação de
+        devolução recebida desde `desde`. Sem Postmaster Tools (lacuna aceita na ADR 0016), isso é uma
+        aproximação — o snippet costuma trazer o endereço que rejeitou, mas não é garantido.
+        """
+        query = f"from:mailer-daemon after:{int(desde.timestamp())}"
+        with httpx.Client(transport=self._transport, timeout=self._timeout_s) as cliente:
+            r = cliente.get(
+                URL_MENSAGENS,
+                headers={"Authorization": f"Bearer {access_token}"},
+                params={"q": query, "maxResults": 50},
+            )
+            if r.status_code != 200:
+                raise ErroGmail(f"o Gmail recusou a busca de devoluções (status {r.status_code})")
+            snippets = []
+            for item in r.json().get("messages", []):
+                r2 = cliente.get(
+                    f"{URL_MENSAGENS}/{item['id']}",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    params={"format": "metadata"},
+                )
+                if r2.status_code == 200:
+                    snippets.append(r2.json().get("snippet", ""))
+        return snippets
