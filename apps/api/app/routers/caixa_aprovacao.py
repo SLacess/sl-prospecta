@@ -59,6 +59,9 @@ class ItemCaixaOut(BaseModel):
     decidido_em: datetime | None
     enviado_em: datetime | None
     enviado_por_nome: str | None
+    guardiao_resultado: str | None
+    guardiao_motivo: str | None
+    guardiao_avaliado_em: datetime | None
 
 
 class AprovarIn(BaseModel):
@@ -129,6 +132,9 @@ def _montar(
         decidido_em=toque.decidido_em,
         enviado_em=toque.enviado_em,
         enviado_por_nome=nomes.get(toque.enviado_por) if toque.enviado_por else None,
+        guardiao_resultado=toque.guardiao_resultado,
+        guardiao_motivo=toque.guardiao_motivo,
+        guardiao_avaliado_em=toque.guardiao_avaliado_em,
     )
 
 
@@ -196,6 +202,11 @@ def aprovar(
                 Toque.decidido_por: user.id,
                 Toque.decidido_em: agora,
                 Toque.motivo_rejeicao: None,
+                # o texto pode ter mudado nesta aprovação — uma avaliação anterior do Guardião
+                # (ADR 0016) não vale mais para o texto novo; o worker reavalia na próxima rodada
+                Toque.guardiao_resultado: None,
+                Toque.guardiao_motivo: None,
+                Toque.guardiao_avaliado_em: None,
             },
             synchronize_session="fetch",
         )

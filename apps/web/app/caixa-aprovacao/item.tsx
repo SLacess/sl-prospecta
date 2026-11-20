@@ -26,6 +26,8 @@ function campoDeTexto(alvo: EventTarget): boolean {
 /**
  * Um cartão da Caixa de Aprovação (CONSTITUICAO §12.1, item 4): edição em linha do texto do Redator,
  * aprovar, rejeitar com motivo, e — já que não há Mensageiro automático (ADR 0014) — marcar como enviada.
+ * Depois de aprovado, mostra o resultado do Guardião (ADR 0016): o worker avalia "a seco" e só grava;
+ * esta tela é quem exibe.
  */
 export function ItemCaixa({ item, aoAtualizar }: Props) {
   const [assunto, setAssunto] = useState(item.assunto_final ?? item.assunto);
@@ -112,6 +114,29 @@ export function ItemCaixa({ item, aoAtualizar }: Props) {
           <span className="hint"> — {item.motivo_critico}</span>
         )}
       </p>
+      {item.decisao_humana === "aprovado" && (
+        <p style={{ margin: "0 0 0.8rem" }}>
+          <span
+            className={`pill ${
+              item.guardiao_resultado === "bloqueado"
+                ? "quente"
+                : item.guardiao_resultado === "aprovado"
+                  ? "verde"
+                  : "neutro"
+            }`}
+          >
+            Guardião:{" "}
+            {item.guardiao_resultado === "bloqueado"
+              ? "bloqueou o envio"
+              : item.guardiao_resultado === "aprovado"
+                ? "liberou o envio"
+                : "ainda não avaliou"}
+          </span>
+          {item.guardiao_resultado && item.guardiao_motivo && (
+            <span className="hint"> — {item.guardiao_motivo}</span>
+          )}
+        </p>
+      )}
 
       <label htmlFor={`assunto-${item.toque_id}`}>Assunto</label>
       <input

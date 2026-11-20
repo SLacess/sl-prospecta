@@ -65,8 +65,11 @@ enviada).
 **Mensageiro/Guardião retomados (ADR 0016, supera parte da ADR 0014) — em andamento, 4 tarefas:**
 1. Caixa conectada por OAuth do Gmail (`caixas_envio`) — feito. Nenhum e-mail é enviado por aqui ainda; a
    Caixa de Aprovação continua exatamente como está até a Tarefa 3.
-2. Guardião (supressão, opt-out, janela de horário, limite diário, checagem leve com `claude-haiku-5-5`) —
-   planejado.
+2. Guardião — feito. Regras (supressão, máx. 1 link no dia 0) bloqueiam sem gastar IA; passando, o agente
+   `guardiao` (claude-haiku-5-5) checa identificação/opt-out/tom/honestidade no texto final aprovado (que
+   pode ter sido editado — reavalia se o vendedor reaprovar). Roda "a seco" via
+   `python -m slp_workers.cli avaliar-guardiao`; só grava `toques.guardiao_*`, exibido na Caixa de Aprovação.
+   Ainda não envia nada.
 3. Mensageiro (envio pela Gmail API, job periódico, log de envio, muda `Toque.enviado_em` e o estado do
    prospect) — planejado.
 4. Disjuntores de envio (bounce automático; spam/resposta negativa só manual por ora, sem Postmaster/Leitor

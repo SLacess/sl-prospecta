@@ -349,6 +349,9 @@ export interface ItemCaixaAprovacao {
   decidido_em: string | null;
   enviado_em: string | null;
   enviado_por_nome: string | null;
+  guardiao_resultado: "aprovado" | "bloqueado" | null;
+  guardiao_motivo: string | null;
+  guardiao_avaliado_em: string | null;
 }
 
 export interface PlacarCaixa {

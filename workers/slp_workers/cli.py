@@ -10,6 +10,8 @@ Uso (no contêiner do worker):
     python -m slp_workers.cli decisores --empresa <id> [--listar]
     python -m slp_workers.cli gerar-sequencia --pendentes [--listar]  # Estrategista + Redator + Crítico
     python -m slp_workers.cli gerar-sequencia --empresa <id> [--listar]
+    python -m slp_workers.cli avaliar-guardiao --pendentes [--listar]  # checagem final antes do envio
+    python -m slp_workers.cli avaliar-guardiao --toque <id> [--listar]
 
 `retomar` serve para empresas que ficaram para trás numa mudança de versão: por exemplo, as que já
 tinham dossiê (PESQUISANDO) antes do Auditor, ou auditoria sem nota antes do Auditor com IA.
@@ -344,6 +346,60 @@ def gerar_sequencia(empresa_id: str | None, listar: bool) -> int:
     return asyncio.run(_gerar_sequencias(alvo))
 
 
+def _para_avaliar_guardiao(toque_id: str | None) -> list:
+    from slp_workers.db import contatos, sequencias, toques
+
+    engine = make_engine(get_config().database_url)
+    try:
+        with engine.connect() as conn:
+            consulta = select(
+                toques.c.id, toques.c.dia, contatos.c.nome.label("contato_nome")
+            ).join(sequencias, sequencias.c.id == toques.c.sequencia_id).join(
+                contatos, contatos.c.id == sequencias.c.contato_id
+            )
+            if toque_id:
+                consulta = consulta.where(toques.c.id == toque_id)
+            else:
+                consulta = consulta.where(
+                    toques.c.decisao_humana == "aprovado",
+                    toques.c.enviado_em.is_(None),
+                    toques.c.guardiao_resultado.is_(None),
+                )
+            return conn.execute(consulta.order_by(contatos.c.nome)).all()
+    finally:
+        engine.dispose()
+
+
+async def _avaliar_guardioes(alvo: list) -> int:
+    from slp_workers.llm import ClienteAnthropic
+    from slp_workers.orchestrator.guardiao import DependenciasGuardiao, Guardiao
+
+    config = get_config()
+    engine = make_engine(config.database_url)
+    deps = DependenciasGuardiao(engine=engine, ia=ClienteAnthropic(config), config=config)
+    contagem = {"aprovado": 0, "bloqueado": 0}
+    try:
+        for t in alvo:
+            resultado = await Guardiao(deps, t.id).executar()
+            if resultado:
+                contagem[resultado] += 1
+            print(f"{resultado or 'sem_pendencia':<14} dia {t.dia}  {t.contato_nome}")
+    finally:
+        engine.dispose()
+    print(f"{contagem['aprovado']} aprovado(s), {contagem['bloqueado']} bloqueado(s) de {len(alvo)}.")
+    return 0
+
+
+def avaliar_guardiao(toque_id: str | None, listar: bool) -> int:
+    alvo = _para_avaliar_guardiao(toque_id)
+    for t in alvo:
+        print(f"dia {t.dia}  {t.contato_nome}")
+    if listar:
+        print(f"{len(alvo)} toque(s) pendente(s) de avaliação do Guardião.")
+        return 0
+    return asyncio.run(_avaliar_guardioes(alvo))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="slp_workers.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -373,6 +429,15 @@ def main() -> int:
     grupo_s.add_argument("--pendentes", action="store_true", help="Empresas em PREPARANDO_ABORDAGEM")
     grupo_s.add_argument("--empresa", help="Só esta empresa (id), se estiver em PREPARANDO_ABORDAGEM")
     s.add_argument("--listar", action="store_true", help="Só lista e estima o custo de IA, sem gerar")
+    g = sub.add_parser(
+        "avaliar-guardiao", help="Checagem final de compliance/tom antes do envio (ADR 0016)"
+    )
+    grupo_g = g.add_mutually_exclusive_group(required=True)
+    grupo_g.add_argument(
+        "--pendentes", action="store_true", help="Toques aprovados, não enviados e ainda não avaliados"
+    )
+    grupo_g.add_argument("--toque", help="Só este toque (id), reavalia mesmo se já tiver resultado")
+    g.add_argument("--listar", action="store_true", help="Só lista, sem avaliar")
     args = parser.parse_args()
     if args.cmd == "retomar":
         return retomar(args.listar)
@@ -384,6 +449,8 @@ def main() -> int:
         return decisores(args.empresa, args.listar)
     if args.cmd == "gerar-sequencia":
         return gerar_sequencia(args.empresa, args.listar)
+    if args.cmd == "avaliar-guardiao":
+        return avaliar_guardiao(args.toque, args.listar)
     return 1
 
 
