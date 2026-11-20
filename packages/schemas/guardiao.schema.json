@@ -1,0 +1,23 @@
+{
+  "properties": {
+    "aprovado": {
+      "title": "Aprovado",
+      "type": "boolean"
+    },
+    "motivo": {
+      "title": "Motivo",
+      "type": "string"
+    },
+    "raciocinio_resumido": {
+      "title": "Raciocinio Resumido",
+      "type": "string"
+    }
+  },
+  "required": [
+    "aprovado",
+    "motivo",
+    "raciocinio_resumido"
+  ],
+  "title": "AvaliacaoGuardiao",
+  "type": "object"
+}

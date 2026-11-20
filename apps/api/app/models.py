@@ -317,6 +317,11 @@ class Toque(Base):
     enviado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     enviado_por: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("usuarios.id", ondelete="SET NULL"))
 
+    # Guardião (CONSTITUICAO §9, §13; ADR 0016) — o worker avalia "a seco" e grava; a API só exibe
+    guardiao_resultado: Mapped[str | None] = mapped_column(String(20))  # aprovado | bloqueado
+    guardiao_motivo: Mapped[str | None] = mapped_column(Text)
+    guardiao_avaliado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
 
 class Supressao(Base):
     """Lista de supressão global — verificada antes de qualquer envio (CONSTITUICAO §15)."""

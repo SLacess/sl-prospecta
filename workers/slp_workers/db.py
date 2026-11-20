@@ -163,6 +163,16 @@ toques = Table(
     Column("motivo_critico", Text),
     Column("tentativas", Integer),
     Column("criado_em", DateTime(timezone=True)),
+    # Caixa de Aprovação (migração 0008) — o Guardião avalia o texto final que o vendedor aprovou,
+    # não o original do Redator: só ele reflete uma eventual edição em linha.
+    Column("decisao_humana", String(20)),
+    Column("assunto_final", String(200)),
+    Column("corpo_final", Text),
+    Column("enviado_em", DateTime(timezone=True)),
+    # Guardião (migração 0010, Fase 3 Tarefa 4 — ADR 0016)
+    Column("guardiao_resultado", String(20)),
+    Column("guardiao_motivo", Text),
+    Column("guardiao_avaliado_em", DateTime(timezone=True)),
 )
 
 supressao = Table(

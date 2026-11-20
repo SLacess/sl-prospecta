@@ -1,5 +1,6 @@
 """Fase 3, Tarefa 3: Caixa de Aprovação (CONSTITUICAO §12.1, item 4; ADR 0014, ponto 4)."""
 
+from datetime import UTC, datetime
 from difflib import SequenceMatcher
 
 from app.models import Contato, Empresa, Evento, Sequencia, Toque
@@ -106,6 +107,26 @@ def test_aprovar_com_texto_vazio_e_422(client, db, vendedor_headers):
         f"/toques/{toque.id}/aprovar", json={"assunto": "  ", "corpo": "  "}, headers=vendedor_headers
     )
     assert r.status_code == 422
+
+
+def test_reaprovar_zera_avaliacao_anterior_do_guardiao(client, db, vendedor_headers):
+    """ADR 0016: o texto pode ter mudado nesta aprovação — uma avaliação antiga do Guardião não vale mais."""
+    _, _, _, toque = _sequencia_com_toque(db)
+    toque.guardiao_resultado = "aprovado"
+    toque.guardiao_motivo = "Tudo confere."
+    toque.guardiao_avaliado_em = datetime.now(UTC)
+    db.commit()
+
+    r = client.post(
+        f"/toques/{toque.id}/aprovar",
+        json={"assunto": "outro assunto", "corpo": "outro corpo bem diferente do original"},
+        headers=vendedor_headers,
+    )
+    assert r.status_code == 200, r.text
+    corpo = r.json()
+    assert corpo["guardiao_resultado"] is None
+    assert corpo["guardiao_motivo"] is None
+    assert corpo["guardiao_avaliado_em"] is None
 
 
 def test_rejeitar_sem_motivo_e_422(client, db, vendedor_headers):
