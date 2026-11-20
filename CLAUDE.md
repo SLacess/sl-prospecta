@@ -70,8 +70,12 @@ enviada).
    pode ter sido editado — reavalia se o vendedor reaprovar). Roda "a seco" via
    `python -m slp_workers.cli avaliar-guardiao`; só grava `toques.guardiao_*`, exibido na Caixa de Aprovação.
    Ainda não envia nada.
-3. Mensageiro (envio pela Gmail API, job periódico, log de envio, muda `Toque.enviado_em` e o estado do
-   prospect) — planejado.
+3. Mensageiro — feito. Para um toque aprovado, roda o Guardião se ainda faltar, escolhe a caixa ativa com
+   menos envios hoje e ainda dentro do limite diário (rodízio), renova o token e envia pela Gmail API;
+   grava `envios` e `Toque.enviado_em`, e replica a transição preparando_abordagem → em_sequencia que
+   `marcar_enviado` já fazia. Dispara manualmente via `python -m slp_workers.cli enviar` — **sem job
+   periódico automático** até a Tarefa 4 existir (disjuntores/"Pausar tudo"); ver ADR 0016. "Marcar como
+   enviada" continua na Caixa de Aprovação como fallback manual (sem caixa conectada, ou envio falhou).
 4. Disjuntores de envio (bounce automático; spam/resposta negativa só manual por ora, sem Postmaster/Leitor
    de Respostas) e botão "Pausar tudo" (§13) — planejado.
 Critério para avançar: 50 e-mails aprovados por Marcos com menos de 20% de texto alterado.

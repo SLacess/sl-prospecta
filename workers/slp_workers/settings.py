@@ -70,6 +70,12 @@ class WorkerConfig(BaseSettings):
     # real: ajuste depois do primeiro uso (ver custo_estimado_por_contato em orchestrator/sequencia.py)
     sequencia_cost_cap_brl: Decimal = Decimal("1.00")  # teto de IA por contato (Estrategista + até 3 ciclos)
 
+    # Mensageiro (CONSTITUICAO §9, §15.2, a partir da Fase 3 — ADR 0016, Tarefa 3). Mesma chave de OAuth da
+    # API, e mesma FIELD_ENCRYPTION_KEY para descriptografar o refresh_token das caixas conectadas.
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = ""
+    field_encryption_key: str = ""
+
     # Prints das páginas (MinIO, compatível com S3)
     minio_endpoint: str = "http://minio:9000"
     minio_root_user: str = ""

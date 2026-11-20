@@ -1,8 +1,14 @@
 import os
 
+from cryptography.fernet import Fernet
+
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 os.environ.pop("ANTHROPIC_API_KEY", None)
+# Mesma chave o teste inteiro: `get_config()` (usado por slp_workers.crypto) é cacheado por processo —
+# precisa estar no ambiente antes da primeira chamada, não só no fixture `config` (ADR 0016, Tarefa 3).
+FIELD_ENCRYPTION_KEY = Fernet.generate_key().decode()
+os.environ["FIELD_ENCRYPTION_KEY"] = FIELD_ENCRYPTION_KEY
 
 import uuid  # noqa: E402
 from decimal import Decimal  # noqa: E402

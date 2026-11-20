@@ -175,6 +175,27 @@ toques = Table(
     Column("guardiao_avaliado_em", DateTime(timezone=True)),
 )
 
+caixas_envio = Table(
+    "caixas_envio", metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("email", String(255), unique=True),
+    Column("nome_remetente", String(120)),
+    Column("refresh_token_criptografado", Text),
+    Column("ativa", Boolean, default=True),
+    Column("limite_diario", Integer),
+    Column("erro_verificacao", Text),
+)
+
+envios = Table(
+    "envios", metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("toque_id", Uuid, ForeignKey("toques.id")),
+    Column("caixa_id", Uuid, ForeignKey("caixas_envio.id")),
+    Column("destinatario", String(255)),
+    Column("gmail_message_id", String(100)),
+    Column("enviado_em", DateTime(timezone=True)),
+)
+
 supressao = Table(
     "supressao", metadata,
     Column("id", Uuid, primary_key=True),

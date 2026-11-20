@@ -25,9 +25,9 @@ function campoDeTexto(alvo: EventTarget): boolean {
 
 /**
  * Um cartão da Caixa de Aprovação (CONSTITUICAO §12.1, item 4): edição em linha do texto do Redator,
- * aprovar, rejeitar com motivo, e — já que não há Mensageiro automático (ADR 0014) — marcar como enviada.
- * Depois de aprovado, mostra o resultado do Guardião (ADR 0016): o worker avalia "a seco" e só grava;
- * esta tela é quem exibe.
+ * aprovar, rejeitar com motivo, e marcar como enviada manualmente (fallback para quando não há caixa
+ * conectada, ou o Mensageiro ainda não rodou). Depois de aprovado, mostra o resultado do Guardião (ADR
+ * 0016) — bloqueado, o Mensageiro não envia; aprovado, tenta enviar na próxima rodada do worker.
  */
 export function ItemCaixa({ item, aoAtualizar }: Props) {
   const [assunto, setAssunto] = useState(item.assunto_final ?? item.assunto);

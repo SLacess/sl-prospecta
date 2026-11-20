@@ -21,7 +21,7 @@ conexão real é testada quando o Workspace existir.
      painel para ver/ativar/desativar/remover. **Nenhum e-mail é enviado nesta tarefa.**
    - Tarefa 2: Guardião (supressão, opt-out, janela de horário, limite diário, checagem leve com
      `claude-haiku-5-5`).
-   - Tarefa 3: Mensageiro (client de envio da Gmail API, job periódico, log de envio, atualização de
+   - Tarefa 3: Mensageiro (client de envio da Gmail API, log de envio, atualização de
      `Toque.enviado_em`/transição de estado que hoje só `marcar_enviado` faz).
    - Tarefa 4: disjuntores de envio e botão "Pausar tudo" (§13).
 2. **A conexão é por OAuth guardado em banco (`caixas_envio`), não mais pela variável `OUTREACH_MAILBOXES`**
@@ -37,6 +37,14 @@ conexão real é testada quando o Workspace existir.
    automáticos ainda. A Tarefa 4 implementa bounce automático (lendo a própria caixa) e um botão manual de
    "reportar reclamação de spam" que pausa tudo na hora — não um disjuntor automático de spam/resposta
    negativa. Revisitar quando a Fase 4 (Leitor de Respostas) ou o Postmaster Tools entrarem.
+
+## Atualização (Tarefa 3)
+
+O envio real pela Gmail API **não roda num job periódico automático** — dispara manualmente via
+`python -m slp_workers.cli enviar`, mesmo padrão de `gerar-sequencia` e `avaliar-guardiao`, sempre
+pré-visualizável com `--listar`. Decisão confirmada com Marcos ao iniciar a Tarefa 3: sem os disjuntores de
+envio da Tarefa 4 ("Pausar tudo" incluído), um job automático enviaria e-mails reais sem rede de segurança
+nenhuma. O disparo manual é a rede de segurança até a Tarefa 4 existir; revisitar automatizar depois dela.
 
 ## Consequências
 

@@ -8,8 +8,8 @@ import { RemoverCaixa } from "./remover-caixa";
 
 /**
  * Caixas de envio conectadas (CONSTITUICAO §9, §15.2; ADR 0016 — retomada da Fase 3, Tarefa 4): conectar
- * uma caixa pelo Google (OAuth), ver status, ativar/desativar/remover. Ninguém envia nada ainda — isso é
- * o Mensageiro, que vem numa próxima tarefa.
+ * uma caixa pelo Google (OAuth), ver status, ativar/desativar/remover. O Mensageiro usa as caixas ativas
+ * em rodízio quando alguém roda `python -m slp_workers.cli enviar` no worker (Tarefa 3).
  */
 export default function CaixasEnvio() {
   const [usuario, setUsuario] = useState<UsuarioAtual | null>(null);
@@ -84,8 +84,8 @@ export default function CaixasEnvio() {
       <h1>Caixas de envio</h1>
       <p className="lead">
         Conecte uma caixa do Gmail para o Mensageiro usar no rodízio de envio (ADR 0016). Conectar aqui
-        ainda não envia nenhum e-mail — isso é uma tarefa seguinte; por ora, a Caixa de Aprovação continua
-        sendo a forma de registrar o envio.
+        ainda não envia nada por si só: o Mensageiro só tenta enviar quando alguém roda o comando no
+        worker, pelas caixas ativas listadas abaixo, respeitando o limite diário de cada uma.
       </p>
 
       <div role="status" aria-live="polite" className={anuncio ? "status" : undefined}>

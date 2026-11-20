@@ -1,7 +1,8 @@
 """Caixas de envio conectadas (CONSTITUICAO §9, §15.2; ADR 0016 — retomada da Fase 3, Tarefa 4).
 
-Só a conexão/cadastro das caixas por OAuth do Gmail. Nenhuma rota aqui envia e-mail — isso é o Mensageiro
-(Tarefa 3), que ainda não existe. `refresh_token_criptografado` nunca aparece em nenhuma resposta.
+Só a conexão/cadastro das caixas por OAuth do Gmail. Nenhuma rota aqui envia e-mail — quem envia é o
+worker (Mensageiro, Tarefa 3), lendo estas caixas direto do banco. `refresh_token_criptografado` nunca
+aparece em nenhuma resposta.
 
 O `GET /caixas-envio/conectar` exige login (admin) e devolve a URL de autorização do Google; o painel faz
 o redirect no browser. O `GET /caixas-envio/callback` é a navegação de volta vinda do próprio Google — por

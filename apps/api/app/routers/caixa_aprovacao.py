@@ -1,9 +1,11 @@
-"""Caixa de Aprovação (CONSTITUICAO §12.1, item 4; ADR 0014, ponto 4): edição em linha, aprovar, rejeitar
-com motivo, e a confirmação manual de envio que falta para fechar a linha do tempo sem Mensageiro automático.
+"""Caixa de Aprovação (CONSTITUICAO §12.1, item 4; ADR 0014, ponto 4; ADR 0016): edição em linha, aprovar,
+rejeitar com motivo, e a confirmação manual de envio que serve de fallback para quando o Mensageiro não
+está em uso (sem caixa conectada, por exemplo).
 
 Só o toque de dia 0 chega aqui — é o único que o Redator/Crítico já escreveram (Fase 3, Tarefa 2). Aprovar e
 "marcar como enviado" são ações separadas: aprovar congela o texto final (editado ou não) e mede
-`percentual_editado`; o envio em si acontece fora da plataforma, por isso só uma confirmação manual depois.
+`percentual_editado`; o envio em si, quando há caixa conectada, é o worker (Mensageiro, Tarefa 3) que faz —
+esta rota de confirmação manual existe para quando não há, ou o envio automático falhou.
 """
 
 import uuid

@@ -14,8 +14,10 @@ const ABAS: { valor: FiltroCaixa; rotulo: string }[] = [
 ];
 
 /**
- * Caixa de Aprovação (CONSTITUICAO §12.1, item 4; ADR 0014): editar em linha, aprovar, rejeitar com
- * motivo, e confirmar manualmente o envio — não há Mensageiro automático nesta fase.
+ * Caixa de Aprovação (CONSTITUICAO §12.1, item 4; ADR 0014 e 0016): editar em linha, aprovar, rejeitar
+ * com motivo. Aprovado e liberado pelo Guardião, o Mensageiro tenta enviar pela caixa conectada da vez
+ * (rodízio) quando alguém roda `enviar` no worker — não há job automático ainda (ADR 0016). "Marcar como
+ * enviada" continua disponível como confirmação manual para quando não há caixa conectada.
  */
 export default function CaixaAprovacao() {
   const [filtro, setFiltro] = useState<FiltroCaixa>("pendentes");
@@ -54,9 +56,11 @@ export default function CaixaAprovacao() {
     <>
       <h1>Caixa de Aprovação</h1>
       <p className="lead">
-        Edite o texto se precisar, aprove ou rejeite com um motivo. Nada é enviado pela plataforma (ADR
-        0014) — depois de aprovar, copie o texto e envie pela sua caixa de e-mail; volte aqui e marque como
-        enviada para a linha do tempo não ficar sem esse registro.
+        Edite o texto se precisar, aprove ou rejeite com um motivo. Depois de aprovado e avaliado pelo
+        Guardião, o Mensageiro envia pela caixa conectada da vez (ADR 0016) — hoje isso ainda depende de
+        alguém rodar o envio no worker, não acontece sozinho. Sem caixa conectada, copie o texto, envie
+        pela sua caixa de e-mail e marque como enviada aqui para a linha do tempo não ficar sem esse
+        registro.
       </p>
       <p className="hint">
         Atalhos de teclado (funcionam fora dos campos de texto): <kbd>A</kbd> aprovar, <kbd>R</kbd> rejeitar,{" "}
