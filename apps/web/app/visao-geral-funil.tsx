@@ -1,4 +1,18 @@
+import {
+  BadgeCheck,
+  CalendarCheck,
+  Gauge,
+  Handshake,
+  MessageSquare,
+  Search,
+  Send,
+  UserSearch,
+} from "lucide-react";
+import type { ComponentType } from "react";
+
 import { type FunilDetalhado } from "@/lib/api";
+
+import { AcoesRecomendadas } from "./acoes-recomendadas";
 
 interface Fase {
   chave: string;
@@ -6,28 +20,29 @@ interface Fase {
   legenda: string;
   total: number;
   faixa: "neutro" | "morno" | "quente" | "verde";
+  Icone: ComponentType<{ size?: number }>;
 }
 
 function montarFases(funil: FunilDetalhado): Fase[] {
   return [
     { chave: "pesquisando", rotulo: "Pesquisando", legenda: "Montando o dossiê", faixa: "neutro",
-      total: funil.NOVO + funil.PESQUISANDO },
+      total: funil.NOVO + funil.PESQUISANDO, Icone: Search },
     { chave: "auditando", rotulo: "Auditando", legenda: "Rodando a auditoria técnica", faixa: "neutro",
-      total: funil.AUDITANDO },
+      total: funil.AUDITANDO, Icone: Gauge },
     { chave: "qualificando", rotulo: "Qualificando", legenda: "Calculando o score", faixa: "neutro",
-      total: funil.QUALIFICANDO },
+      total: funil.QUALIFICANDO, Icone: BadgeCheck },
     { chave: "mapeando_decisores", rotulo: "Mapeando decisores", legenda: "Buscando quem decide", faixa: "morno",
-      total: funil.MAPEANDO_DECISORES },
+      total: funil.MAPEANDO_DECISORES, Icone: UserSearch },
     { chave: "preparando_abordagem", rotulo: "Preparando abordagem", legenda: "Decisor com e-mail válido",
-      faixa: "quente", total: funil.PREPARANDO_ABORDAGEM },
+      faixa: "quente", total: funil.PREPARANDO_ABORDAGEM, Icone: Send },
     { chave: "em_sequencia", rotulo: "Em sequência", legenda: "Mensagem aprovada", faixa: "verde",
-      total: funil.EM_SEQUENCIA },
+      total: funil.EM_SEQUENCIA, Icone: Send },
     { chave: "respondeu", rotulo: "Respondeu", legenda: "Aguardando triagem", faixa: "verde",
-      total: funil.RESPONDEU },
+      total: funil.RESPONDEU, Icone: MessageSquare },
     { chave: "reuniao", rotulo: "Reunião agendada", legenda: "Compromisso no calendário", faixa: "verde",
-      total: funil.REUNIAO_AGENDADA },
+      total: funil.REUNIAO_AGENDADA, Icone: CalendarCheck },
     { chave: "proposta", rotulo: "Proposta / Ganho", legenda: "Negócio em fechamento", faixa: "verde",
-      total: funil.PROPOSTA_ENVIADA + funil.NEGOCIACAO + funil.GANHO },
+      total: funil.PROPOSTA_ENVIADA + funil.NEGOCIACAO + funil.GANHO, Icone: Handshake },
   ];
 }
 
@@ -52,6 +67,9 @@ export function VisaoGeralFunil({ funil }: { funil: FunilDetalhado | null }) {
         {fases.map((f, i) => (
           <li key={f.chave}>
             <a href="/crm" className={`fase fase-${f.faixa}`} style={{ textDecoration: "none" }}>
+              <span className={`fase-icone ${f.faixa}`} aria-hidden="true">
+                <f.Icone size={18} />
+              </span>
               <span className="fase-rotulo">{f.rotulo}</span>
               <span className="fase-total">{f.total}</span>
               <span className="fase-legenda">{f.legenda}</span>
@@ -93,6 +111,7 @@ export function VisaoGeralFunil({ funil }: { funil: FunilDetalhado | null }) {
             </p>
           </div>
         )}
+        <AcoesRecomendadas funil={funil} />
       </div>
     </section>
   );
