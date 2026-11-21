@@ -194,6 +194,25 @@ class Auditoria(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class Microsite(Base):
+    """Link público do relatório, para o Redator incluir no e-mail (CONSTITUICAO §9.1, §17, §21.1).
+
+    Fatia mínima da tabela `microsites` que a CONSTITUICAO §17 já reserva para a Fase 5 (microsite
+    disruptivo) — hoje só serve o relatório que já existe (`relatorios/<empresa>/<auditoria>.html`),
+    atrás de um `slug` aleatório em vez de login, com a expiração de 120 dias que a CONSTITUICAO define.
+    """
+
+    __tablename__ = "microsites"
+    __table_args__ = (UniqueConstraint("empresa_id", "auditoria_id", name="uq_microsites_empresa_auditoria"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_uuid)
+    empresa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("empresas.id", ondelete="CASCADE"), index=True)
+    auditoria_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("auditorias.id", ondelete="CASCADE"))
+    slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class RevisaoAchado(Base):
     """Revisão humana de um achado (critério da Fase 1, §19). Os motivos alimentam o Analista (§14.3)."""
 

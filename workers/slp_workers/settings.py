@@ -76,6 +76,10 @@ class WorkerConfig(BaseSettings):
     google_oauth_client_secret: str = ""
     field_encryption_key: str = ""
 
+    # Link do relatório no e-mail (CONSTITUICAO §9.1, §17, §21.1). URL pública da API (não a do painel) —
+    # vazio desativa a feature sem quebrar nada: o Redator só escreve sem link, como já era (ADR 0017).
+    api_public_base_url: str = ""
+
     # Prints das páginas (MinIO, compatível com S3)
     minio_endpoint: str = "http://minio:9000"
     minio_root_user: str = ""
