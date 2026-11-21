@@ -17,6 +17,7 @@ import {
 import { AuditoriaTecnica } from "./auditoria-tecnica";
 import { ConfirmarSite } from "./confirmar-site";
 import { EnvioPlanilha } from "./envio-planilha";
+import { EstatisticasPainel } from "./estatisticas-painel";
 import { VisaoGeralFunil } from "./visao-geral-funil";
 
 /** Intervalo da consulta ao andamento (ADR 0002: consulta periódica em vez de WebSocket na Fase 1). */
@@ -182,6 +183,8 @@ export default function PainelProspeccao() {
         abordagem.
       </p>
 
+      <EstatisticasPainel funil={funil} disjuntor={disjuntor} apollo={apollo} />
+
       {disjuntor?.atingido && (
         <section className="aviso" aria-labelledby="titulo-aviso-custo">
           <h2 id="titulo-aviso-custo">
@@ -191,6 +194,7 @@ export default function PainelProspeccao() {
         </section>
       )}
 
+      <div className="painel-grid">
       <section className="card" aria-labelledby="titulo-individual">
         <h2 id="titulo-individual" style={{ marginTop: 0 }}>Prospecção individual</h2>
         <form onSubmit={aoProspectar} noValidate aria-busy={enviando}>
@@ -229,6 +233,7 @@ export default function PainelProspeccao() {
       </section>
 
       <EnvioPlanilha />
+      </div>
 
       {detalhe && (
         <section className="card" aria-labelledby="titulo-andamento" style={{ marginTop: "1.5rem" }}>
