@@ -19,6 +19,7 @@ from slp_workers.db import (
     contatos,
     dossies,
     eventos,
+    microsites,
     sequencias,
     supressao,
     toques,
@@ -101,11 +102,13 @@ class IASequenciaFalsa:
         self.redacoes = redacoes or [redacao_exemplo()]
         self.criticas = criticas or [critica_exemplo(aprovado=True)]
         self.chamadas: list[str] = []
+        self.conteudos: list[str] = []
         self._i_redator = 0
         self._i_critico = 0
 
     async def estruturado(self, *, modelo, sistema, conteudo, formato, effort, max_tokens):
         self.chamadas.append(formato.__name__)
+        self.conteudos.append(conteudo)
         if formato is Estrategia:
             return self.estrategia, Consumo(modelo=modelo, custo_brl=Decimal("0.10"))
         if formato is Redacao:
@@ -229,6 +232,51 @@ def test_reescrita_dispara_e_aprova_na_segunda_tentativa(engine, config, empresa
     assert dia0.tentativas == 2
     assert dia0.aprovado is True
     assert dia0.corpo == redacao_boa.corpo  # só o rascunho final fica salvo, não a primeira tentativa
+
+
+def test_sem_api_public_base_url_nao_cria_microsite_nem_link(engine, config, empresa_preparando):
+    """Comportamento de hoje, preservado: sem a config, fica tudo como já era (ADR 0017)."""
+    assert config.api_public_base_url == ""
+    _inserir_contato(engine, empresa_preparando)
+    _inserir_dossie_e_auditoria(engine, empresa_preparando)
+    ia = IASequenciaFalsa()
+
+    asyncio.run(Sequencia(DependenciasSequencia(engine, ia, config), empresa_preparando).executar())
+
+    with engine.connect() as conn:
+        assert conn.scalar(select(microsites.c.id)) is None
+    conteudo_redator = ia.conteudos[ia.chamadas.index("Redacao")]
+    assert "Link do diagnóstico" not in conteudo_redator
+
+
+def test_com_api_public_base_url_cria_microsite_e_inclui_link(engine, empresa_preparando):
+    config = WorkerConfig(api_public_base_url="https://api.exemplo.com.br")
+    _inserir_contato(engine, empresa_preparando)
+    _inserir_dossie_e_auditoria(engine, empresa_preparando)
+    ia = IASequenciaFalsa()
+
+    asyncio.run(Sequencia(DependenciasSequencia(engine, ia, config), empresa_preparando).executar())
+
+    with engine.connect() as conn:
+        microsite = conn.execute(select(microsites)).one()
+    assert microsite.empresa_id == empresa_preparando
+    url = f"https://api.exemplo.com.br/diagnostico/{microsite.slug}"
+    conteudo_redator = ia.conteudos[ia.chamadas.index("Redacao")]
+    assert f"Link do diagnóstico: {url}" in conteudo_redator
+
+
+def test_dois_contatos_reaproveitam_o_mesmo_microsite(engine, empresa_preparando):
+    config = WorkerConfig(api_public_base_url="https://api.exemplo.com.br")
+    _inserir_contato(engine, empresa_preparando, email="ana@exemplo.com.br")
+    _inserir_contato(engine, empresa_preparando, nome="Beto Lima", email="beto@exemplo.com.br")
+    _inserir_dossie_e_auditoria(engine, empresa_preparando)
+    ia = IASequenciaFalsa()
+
+    asyncio.run(Sequencia(DependenciasSequencia(engine, ia, config), empresa_preparando).executar())
+
+    with engine.connect() as conn:
+        linhas = conn.execute(select(microsites)).all()
+    assert len(linhas) == 1  # um relatório, um microsite — reaproveitado entre os dois contatos
 
 
 def test_esgota_tres_tentativas_sem_aprovar_mesmo_assim_salva(engine, config, empresa_preparando):

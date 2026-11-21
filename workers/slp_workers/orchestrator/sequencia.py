@@ -14,18 +14,22 @@ Para uma empresa em PREPARANDO_ABORDAGEM:
 A empresa nunca muda de estado aqui: o §7.1 reserva a caixa de aprovação (Tarefa 3, ainda não construída)
 entre PREPARANDO_ABORDAGEM e EM_SEQUENCIA.
 
-Duas limitações conhecidas desta tarefa, citadas no plano:
-- Não existe link público de diagnóstico ainda; o Redator escreve sem URL.
-- `ja_interagiu` é sempre False — sem sinal real de interação prévia antes da Fase 4 — então o toque de
-  LinkedIn do dia 5 nunca entra na cadência planejada.
+O link do relatório que o Redator inclui no e-mail (ADR 0017, CONSTITUICAO §9.1/§17/§21.1) é gerado (ou
+reaproveitado, se já existir um para esta auditoria) antes de chamar o Redator — um por empresa, não por
+contato, já que é o mesmo relatório. Sem `API_PUBLIC_BASE_URL` configurada, fica `None` e o Redator
+escreve sem link, como já era.
+
+Limitação conhecida desta tarefa, citada no plano: `ja_interagiu` é sempre False — sem sinal real de
+interação prévia antes da Fase 4 — então o toque de LinkedIn do dia 5 nunca entra na cadência planejada.
 
 Só este módulo grava; os agentes devolvem dados validados (§6).
 """
 
 import asyncio
+import secrets
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -38,6 +42,7 @@ from slp_workers.db import (
     contatos,
     dossies,
     empresas,
+    microsites,
     registrar_acao,
     registrar_evento,
     sequencias,
@@ -51,6 +56,7 @@ from slp_workers.settings import WorkerConfig
 PREPARANDO_ABORDAGEM = "PREPARANDO_ABORDAGEM"
 MAX_TENTATIVAS = 3
 ASSINATURA_PADRAO = "Equipe Sinal Link Acessibilidade"
+EXPIRACAO_MICROSITE = timedelta(days=120)  # CONSTITUICAO §17
 
 
 class CustoDiarioEsgotado(Exception):
@@ -185,6 +191,31 @@ class Sequencia:
                 .limit(1)
             ).first()
 
+    def _link_diagnostico(self, auditoria_id: uuid.UUID) -> str | None:
+        """Um microsite por relatório (ADR 0017) — reaproveita se já existir e ainda não tiver expirado;
+        sem `api_public_base_url` configurada, não cria nada e devolve `None`."""
+        base = self.deps.config.api_public_base_url
+        if not base:
+            return None
+        with self.deps.engine.connect() as conn:
+            existente = conn.scalar(
+                select(microsites.c.slug).where(
+                    microsites.c.empresa_id == self.empresa_id,
+                    microsites.c.auditoria_id == auditoria_id,
+                    microsites.c.expira_em >= datetime.now(UTC),
+                )
+            )
+        slug = existente or secrets.token_urlsafe(24)
+        if existente is None:
+            with self.deps.engine.begin() as conn:
+                conn.execute(
+                    microsites.insert().values(
+                        id=uuid.uuid4(), empresa_id=self.empresa_id, auditoria_id=auditoria_id, slug=slug,
+                        expira_em=datetime.now(UTC) + EXPIRACAO_MICROSITE,
+                    )
+                )
+        return f"{base.rstrip('/')}/diagnostico/{slug}"
+
     def _gasto_do_contato(self, contato_id: uuid.UUID) -> Decimal:
         with self.deps.engine.connect() as conn:
             total = conn.scalar(
@@ -238,7 +269,8 @@ class Sequencia:
     # --- fluxo ------------------------------------------------------------
 
     async def _gerar_para_contato(
-        self, empresa: Any, contato: Any, achados: list[dict], resumo: list[str]
+        self, empresa: Any, contato: Any, achados: list[dict], resumo: list[str],
+        link_diagnostico: str | None,
     ) -> str:
         estrategia, consumo, hash_e = await strategist.criar_estrategia(
             self.deps.ia,
@@ -275,6 +307,7 @@ class Sequencia:
                 resumo_dossie=resumo,
                 estrategia=estrategia,
                 assinatura=ASSINATURA_PADRAO,
+                link_diagnostico=link_diagnostico,
                 feedback_revisao=feedback,
             )
             await self.acao(
@@ -359,6 +392,9 @@ class Sequencia:
         auditoria = await asyncio.to_thread(self._ultima_auditoria_analisada)
         resumo = dossie.resumo.splitlines() if dossie and dossie.resumo else []
         achados = (auditoria.achados_json or {}).get("top3_para_leigos", []) if auditoria else []
+        link_diagnostico = (
+            await asyncio.to_thread(self._link_diagnostico, auditoria.id) if auditoria else None
+        )
 
         resultados: dict[str, str] = {}
         for contato in await asyncio.to_thread(self._contatos_validos):
@@ -373,5 +409,7 @@ class Sequencia:
                 )
                 resultados[str(contato.id)] = "contato_suprimido"
                 continue
-            resultados[str(contato.id)] = await self._gerar_para_contato(empresa, contato, achados, resumo)
+            resultados[str(contato.id)] = await self._gerar_para_contato(
+                empresa, contato, achados, resumo, link_diagnostico
+            )
         return resultados

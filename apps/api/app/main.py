@@ -11,6 +11,7 @@ from app.routers import (
     caixa_aprovacao,
     caixas_envio,
     crm,
+    diagnostico,
     ficha,
     governanca,
     health,
@@ -60,6 +61,7 @@ app.include_router(crm.router)
 app.include_router(caixa_aprovacao.router)
 app.include_router(caixas_envio.router)
 app.include_router(operacao.router)
+app.include_router(diagnostico.router)
 
 
 @app.get("/", include_in_schema=False)

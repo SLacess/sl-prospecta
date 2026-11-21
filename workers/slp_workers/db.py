@@ -196,6 +196,15 @@ envios = Table(
     Column("enviado_em", DateTime(timezone=True)),
 )
 
+microsites = Table(
+    "microsites", metadata,
+    Column("id", Uuid, primary_key=True),
+    Column("empresa_id", Uuid, ForeignKey("empresas.id")),
+    Column("auditoria_id", Uuid, ForeignKey("auditorias.id")),
+    Column("slug", String(64), unique=True),
+    Column("expira_em", DateTime(timezone=True)),
+)
+
 supressao = Table(
     "supressao", metadata,
     Column("id", Uuid, primary_key=True),
