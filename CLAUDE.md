@@ -64,7 +64,9 @@ de 6 toques por persona; Caixa de Aprovação (editar em linha, aprovar, rejeita
 enviada).
 **Mensageiro/Guardião retomados (ADR 0016, supera parte da ADR 0014) — em andamento, 4 tarefas:**
 1. Caixa conectada por OAuth do Gmail (`caixas_envio`) — feito. Nenhum e-mail é enviado por aqui ainda; a
-   Caixa de Aprovação continua exatamente como está até a Tarefa 3.
+   Caixa de Aprovação continua exatamente como está até a Tarefa 3. O limite diário de uma caixa já
+   conectada é ajustável a qualquer momento pelo painel (`/caixas-envio` → "Editar"), para a rampa do
+   aquecimento (`infra/EMAIL-WARMUP.md` §5) sem precisar reconectar.
 2. Guardião — feito. Regras (supressão, máx. 1 link no dia 0) bloqueiam sem gastar IA; passando, o agente
    `guardiao` (claude-haiku-5-5) checa identificação/opt-out/tom/honestidade no texto final aprovado (que
    pode ter sido editado — reavalia se o vendedor reaprovar). Roda "a seco" via

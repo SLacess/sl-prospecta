@@ -153,12 +153,9 @@ daquele domínio, o que o fluxo OAuth do passo 4 garante.
 | 4 | 30–50 (faixa do §15.2; hoje `DAILY_SEND_LIMIT_PER_MAILBOX=40` no `.env`) |
 
 Com várias caixas, o Mensageiro faz rodízio entre elas (§15.2) — o limite acima é por caixa, não total.
-Hoje o limite diário de uma caixa é fixado na conexão (`DAILY_SEND_LIMIT_PER_MAILBOX` no `.env`, no momento
-em que ela é conectada) — não há ainda uma tela para subir o limite de uma caixa já conectada semana a
-semana. Enquanto isso não existir, suba `DAILY_SEND_LIMIT_PER_MAILBOX`, reconecte a caixa (reconectar
-atualiza só o token, não o limite — então seria preciso remover e conectar de novo) ou peça para editar
-direto no banco. Avise antes de precisar disso na prática (por volta da semana 2) para priorizarmos uma
-tela simples de ajuste.
+A conexão (`/caixas-envio/conectar`) começa com o valor de `DAILY_SEND_LIMIT_PER_MAILBOX` do `.env`, mas
+dá para subir o limite de uma caixa já conectada a qualquer momento — o link "Editar" ao lado de "Limite
+diário", no card da caixa em `/caixas-envio` — sem precisar reconectar nem mexer no `.env`.
 
 ## 6. Verificar a reputação antes da Fase 3
 - [mail-tester.com](https://www.mail-tester.com): mande um e-mail de teste de cada caixa, confira a nota
@@ -179,6 +176,8 @@ tela simples de ajuste.
 - [ ] Projeto no Google Cloud + OAuth client criado, redirect URI cadastrado, credenciais no
   `.env.production` da VPS
 - [ ] Cada caixa conectada pelo painel (`/caixas-envio`) e aparecendo "Ativa", sem `erro_verificacao`
+- [ ] Limite diário de cada caixa ajustado pelo "Editar" em `/caixas-envio` conforme a semana do
+  cronograma acima (começa em 5-10, não no valor padrão de conexão)
 - [ ] Aquecimento rodando há pelo menos 2 semanas
 - [ ] Nota 9+ no mail-tester e reputação "Alta"/"Média-alta" no Postmaster Tools
 - [ ] Nenhuma reclamação de spam nas últimas 2 semanas
