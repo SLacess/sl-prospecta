@@ -18,6 +18,8 @@ export default function CaixasEnvio() {
   const [anuncio, setAnuncio] = useState("");
   const [conectando, setConectando] = useState(false);
   const [paraRemover, setParaRemover] = useState<CaixaEnvio | null>(null);
+  const [editandoLimite, setEditandoLimite] = useState<string | null>(null);
+  const [novoLimite, setNovoLimite] = useState("");
 
   const carregar = useCallback(async () => {
     try {
@@ -73,6 +75,31 @@ export default function CaixasEnvio() {
     }
   }
 
+  function iniciarEdicaoLimite(caixa: CaixaEnvio) {
+    setEditandoLimite(caixa.id);
+    setNovoLimite(String(caixa.limite_diario));
+  }
+
+  async function salvarLimite(caixaId: string) {
+    const valor = Number(novoLimite);
+    if (!Number.isInteger(valor) || valor <= 0) {
+      setErro("O limite diário precisa ser um número inteiro maior que zero.");
+      return;
+    }
+    setErro("");
+    try {
+      const atualizada = await apiFetch<CaixaEnvio>(`/caixas-envio/${caixaId}/limite`, {
+        method: "POST",
+        body: JSON.stringify({ limite_diario: valor }),
+      });
+      setAnuncio(`Limite diário de ${atualizada.email} atualizado para ${atualizada.limite_diario}.`);
+      setCaixas((atual) => atual?.map((c) => (c.id === atualizada.id ? atualizada : c)) ?? atual);
+      setEditandoLimite(null);
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : "Não foi possível atualizar o limite diário.");
+    }
+  }
+
   function aoRemover(id: string) {
     setAnuncio("Caixa removida.");
     setParaRemover(null);
@@ -125,7 +152,43 @@ export default function CaixasEnvio() {
             </div>
             <div>
               <dt>Limite diário</dt>
-              <dd>{caixa.limite_diario} e-mails</dd>
+              <dd>
+                {editandoLimite === caixa.id ? (
+                  <span className="row" style={{ alignItems: "center", gap: "0.4rem" }}>
+                    <label htmlFor={`limite-${caixa.id}`} className="visually-hidden">
+                      Novo limite diário para {caixa.email}
+                    </label>
+                    <input
+                      id={`limite-${caixa.id}`}
+                      type="number"
+                      min={1}
+                      value={novoLimite}
+                      onChange={(e) => setNovoLimite(e.target.value)}
+                      style={{ width: "5rem" }}
+                    />
+                    <button type="button" onClick={() => salvarLimite(caixa.id)}>
+                      Salvar
+                    </button>
+                    <button type="button" className="secundario" onClick={() => setEditandoLimite(null)}>
+                      Cancelar
+                    </button>
+                  </span>
+                ) : (
+                  <>
+                    {caixa.limite_diario} e-mails
+                    {admin && (
+                      <button
+                        type="button"
+                        className="link"
+                        style={{ marginLeft: "0.5rem" }}
+                        onClick={() => iniciarEdicaoLimite(caixa)}
+                      >
+                        Editar
+                      </button>
+                    )}
+                  </>
+                )}
+              </dd>
             </div>
           </dl>
           {caixa.erro_verificacao && (

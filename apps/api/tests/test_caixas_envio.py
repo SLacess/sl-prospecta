@@ -4,6 +4,7 @@ O client do Google é substituído por um dublê (`ClienteGoogleFalso`), no mesm
 `httpx.MockTransport` usado para o Apollo no worker: nenhum teste aqui fala com o Google de verdade.
 """
 
+import uuid
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -149,6 +150,42 @@ def test_ativar_desativar_exige_admin(client, db, admin, vendedor_headers, admin
 
     r = client.post(f"/caixas-envio/{caixa_id}/ativar", headers=admin_headers)
     assert r.json()["ativa"] is True
+
+
+def test_editar_limite_exige_admin(client, db, admin, vendedor_headers, admin_headers, google_falso):
+    state = criar_state_oauth(str(admin.id))
+    client.get("/caixas-envio/callback", params={"code": "abc", "state": state}, follow_redirects=False)
+    caixa_id = db.query(CaixaEnvio).one().id
+
+    r = client.post(
+        f"/caixas-envio/{caixa_id}/limite", json={"limite_diario": 10}, headers=vendedor_headers
+    )
+    assert r.status_code == 403
+
+    r = client.post(
+        f"/caixas-envio/{caixa_id}/limite", json={"limite_diario": 10}, headers=admin_headers
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["limite_diario"] == 10
+
+
+def test_editar_limite_zero_ou_negativo_e_422(client, db, admin, admin_headers, google_falso):
+    state = criar_state_oauth(str(admin.id))
+    client.get("/caixas-envio/callback", params={"code": "abc", "state": state}, follow_redirects=False)
+    caixa_id = db.query(CaixaEnvio).one().id
+
+    for valor in (0, -5):
+        r = client.post(
+            f"/caixas-envio/{caixa_id}/limite", json={"limite_diario": valor}, headers=admin_headers
+        )
+        assert r.status_code == 422
+
+
+def test_editar_limite_caixa_inexistente_e_404(client, admin_headers):
+    r = client.post(
+        f"/caixas-envio/{uuid.uuid4()}/limite", json={"limite_diario": 10}, headers=admin_headers
+    )
+    assert r.status_code == 404
 
 
 def test_remover_tenta_revogar_e_remove_mesmo_se_revogacao_falhar(client, db, admin, admin_headers):

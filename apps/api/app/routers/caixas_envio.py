@@ -18,7 +18,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from jwt import PyJWTError
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -47,6 +47,10 @@ class CaixaEnvioOut(BaseModel):
 
 class ConectarOut(BaseModel):
     url_autorizacao: str
+
+
+class EditarLimiteIn(BaseModel):
+    limite_diario: int = Field(gt=0)
 
 
 def _montar(caixa: CaixaEnvio) -> CaixaEnvioOut:
@@ -165,6 +169,22 @@ def desativar(
 ) -> CaixaEnvioOut:
     caixa = _buscar(db, caixa_id)
     caixa.ativa = False
+    db.commit()
+    db.refresh(caixa)
+    return _montar(caixa)
+
+
+@router.post("/{caixa_id}/limite", response_model=CaixaEnvioOut)
+def editar_limite(
+    caixa_id: uuid.UUID,
+    dados: EditarLimiteIn,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_role(Papel.admin)),
+) -> CaixaEnvioOut:
+    """Sobe (ou desce) o limite diário de uma caixa já conectada — a rampa do aquecimento manual
+    (infra/EMAIL-WARMUP.md §5), já que `DAILY_SEND_LIMIT_PER_MAILBOX` só vale no momento da conexão."""
+    caixa = _buscar(db, caixa_id)
+    caixa.limite_diario = dados.limite_diario
     db.commit()
     db.refresh(caixa)
     return _montar(caixa)
