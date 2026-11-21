@@ -11,6 +11,10 @@
   --focus: #b3470b;
   --danger: #a3161b;
   --radius: 10px;
+  /* Painel de marca da tela de login — sempre escuro o bastante para texto branco, nos dois temas */
+  --login-painel-1: #0b5cad;
+  --login-painel-2: #062a4e;
+  --login-painel-fg: #ffffff;
   /* Pills de status — fundo claro + texto escuro da mesma matiz, sempre com rótulo de texto (nunca só cor) */
   --quente-bg: #fde4e1;
   --quente-fg: #8a241b;
@@ -35,6 +39,9 @@
     --primary-text: #0b1220;
     --focus: #ffb37a;
     --danger: #ff8a8f;
+    --login-painel-1: #1d4ed8;
+    --login-painel-2: #050d1a;
+    --login-painel-fg: #ffffff;
     --quente-bg: #4a1410;
     --quente-fg: #ffb4a8;
     --morno-bg: #4a3700;
@@ -94,6 +101,38 @@ nav a { color: var(--text); text-decoration: underline; text-underline-offset: 3
 nav a[aria-current="page"] { font-weight: 700; }
 
 main { max-width: 960px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+
+/* Tela de login: painel de marca + formulário lado a lado (empilha abaixo de ~720px). */
+.tela-login {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+  max-width: 960px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  align-items: stretch;
+}
+.login-painel {
+  background: linear-gradient(160deg, var(--login-painel-1), var(--login-painel-2) 160%);
+  color: var(--login-painel-fg);
+  border-radius: calc(var(--radius) * 2);
+  padding: 2.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+.login-painel-titulo { font-size: 1.6rem; font-weight: 700; line-height: 1.3; margin: 0; }
+.login-painel-texto { margin: 0; opacity: 0.92; max-width: 32ch; }
+.login-painel-ilustracao { align-self: center; width: 100%; max-width: 220px; }
+.login-painel-ilustracao svg { width: 100%; height: auto; }
+.login-form-col { display: flex; flex-direction: column; justify-content: center; }
+
+@media (max-width: 720px) {
+  .tela-login { grid-template-columns: 1fr; margin: 1rem auto; }
+  .login-painel { padding: 2rem 1.5rem; }
+  .login-painel-ilustracao { max-width: 160px; }
+}
 
 /* Botão "Pausar tudo" (CONSTITUICAO §13; ADR 0016, Tarefa 4) — sempre visível, discreto quando a
    operação não está pausada, destacado (mesma matiz de "quente") quando está. */
