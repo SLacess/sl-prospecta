@@ -3,18 +3,18 @@ e o mini-relatório (§8.3). Tudo exige login; prints e relatórios saem do MinI
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.artefatos import Armazenamento, chave_de, chave_relatorio, get_armazenamento
 from app.db import get_db
-from app.deps import get_current_user
-from app.models import Auditoria, Contato, Empresa, Evento, Papel, Sequencia, Toque, Usuario
+from app.deps import get_current_user, require_role
+from app.models import Auditoria, Contato, Empresa, EstadoProspect, Evento, Papel, Sequencia, Toque, Usuario
 from app.routers.crm import DestinoOut, destinos_out
 from app.routers.prospeccao import (
     AuditoriaResumoOut,
@@ -25,6 +25,9 @@ from app.routers.prospeccao import (
     _ultimo_dossie,
 )
 from app.routers.qualificacao import QualificacaoOut, ultima_qualificacao
+from app.timeline import registrar_evento
+
+EVENTOS_DE_MAPEAMENTO = ("decisores_encontrados", "sem_decisores")
 
 router = APIRouter(tags=["ficha do prospect"])
 
@@ -217,6 +220,48 @@ class FichaOut(BaseModel):
     destinos: list[DestinoOut]  # mudanças manuais de estado permitidas (ADR 0011)
     relatorio_disponivel: bool
     eventos: list[EventoOut]
+    permite_decisor_manual: bool
+
+
+class DecisorManualIn(BaseModel):
+    nome: str = Field(min_length=1, max_length=120)
+    sobrenome: str = Field(default="", max_length=120)
+    email: str | None = Field(default=None, max_length=255)
+    cargo: str | None = Field(default=None, max_length=200)
+    area: Literal["TI", "RH", "D&I", "Marketing", "ESG", "Compliance"]
+
+
+class DecisoresManualIn(BaseModel):
+    decisores: list[DecisorManualIn] = Field(min_length=1, max_length=5)
+
+
+def _contatos_validos_count(db: Session, empresa_id: uuid.UUID) -> int:
+    return (
+        db.query(Contato)
+        .filter(
+            Contato.empresa_id == empresa_id, Contato.email_status == "valido", Contato.opt_out.is_(False)
+        )
+        .count()
+    )
+
+
+def _mapeamento_tentado(db: Session, empresa_id: uuid.UUID) -> bool:
+    return (
+        db.scalar(
+            select(Evento.id)
+            .where(Evento.empresa_id == empresa_id, Evento.tipo.in_(EVENTOS_DE_MAPEAMENTO))
+            .limit(1)
+        )
+        is not None
+    )
+
+
+def _permite_decisor_manual(db: Session, empresa: Empresa) -> bool:
+    return (
+        empresa.estado == EstadoProspect.mapeando_decisores
+        and _mapeamento_tentado(db, empresa.id)
+        and _contatos_validos_count(db, empresa.id) == 0
+    )
 
 
 def _dossie(db: Session, empresa_id: uuid.UUID) -> DossieCompletoOut | None:
@@ -293,12 +338,8 @@ def _empresa_ou_404(db: Session, empresa_id: uuid.UUID) -> Empresa:
     return empresa
 
 
-@router.get("/empresas/{empresa_id}/ficha", response_model=FichaOut)
-def ficha(
-    empresa_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    armazenamento: Armazenamento = Depends(get_armazenamento),
-    user: Usuario = Depends(get_current_user),
+def _montar_ficha(
+    db: Session, armazenamento: Armazenamento, empresa_id: uuid.UUID, papel: Papel
 ) -> FichaOut:
     empresa = _empresa_ou_404(db, empresa_id)
     auditoria = _ultima_auditoria(db, empresa_id)
@@ -312,7 +353,7 @@ def ficha(
         auditoria=_resumo_auditoria(auditoria) if auditoria else None,
         evidencias=_evidencias(auditoria, empresa.dominio),
         qualificacao=ultima_qualificacao(db, empresa_id),
-        decisores=_decisores(db, empresa_id, user.papel),
+        decisores=_decisores(db, empresa_id, papel),
         sequencias=_sequencias(db, empresa_id),
         destinos=destinos_out(empresa.estado),
         relatorio_disponivel=analisada
@@ -327,7 +368,78 @@ def ficha(
             )
             for e in eventos
         ],
+        permite_decisor_manual=_permite_decisor_manual(db, empresa),
     )
+
+
+@router.get("/empresas/{empresa_id}/ficha", response_model=FichaOut)
+def ficha(
+    empresa_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    armazenamento: Armazenamento = Depends(get_armazenamento),
+    user: Usuario = Depends(get_current_user),
+) -> FichaOut:
+    return _montar_ficha(db, armazenamento, empresa_id, user.papel)
+
+
+@router.post("/empresas/{empresa_id}/decisores", response_model=FichaOut)
+def adicionar_decisores_manual(
+    empresa_id: uuid.UUID,
+    dados: DecisoresManualIn,
+    db: Session = Depends(get_db),
+    armazenamento: Armazenamento = Depends(get_armazenamento),
+    user: Usuario = Depends(require_role(Papel.admin, Papel.vendedor)),
+) -> FichaOut:
+    """Decisor cadastrado à mão pelo vendedor — só quando o Mapeador já tentou e não achou ninguém
+    (CONSTITUICAO §7.3, Etapa 4; nunca um atalho para pular a busca automática)."""
+    empresa = _empresa_ou_404(db, empresa_id)
+    if not _permite_decisor_manual(db, empresa):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Essa empresa não está elegível para adicionar decisor manualmente.",
+        )
+
+    nomes = []
+    for d in dados.decisores:
+        nome_completo = f"{d.nome.strip()} {d.sobrenome.strip()}".strip()
+        email = d.email.strip().lower() if d.email and d.email.strip() else None
+        if email and db.scalar(
+            select(Contato.id).where(Contato.empresa_id == empresa_id, Contato.email == email)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Já existe um contato com o e-mail {email} nesta empresa.",
+            )
+        db.add(
+            Contato(
+                empresa_id=empresa_id,
+                nome=nome_completo,
+                cargo=(d.cargo.strip() if d.cargo and d.cargo.strip() else None),
+                area=d.area,
+                email=email,
+                email_status="valido" if email else "sem_email",
+                opt_out=False,
+                fonte="manual",
+            )
+        )
+        nomes.append(nome_completo)
+    db.flush()
+
+    avancou = False
+    if _contatos_validos_count(db, empresa_id) >= 1:
+        linhas = (
+            db.query(Empresa)
+            .filter(Empresa.id == empresa_id, Empresa.estado == EstadoProspect.mapeando_decisores)
+            .update({Empresa.estado: EstadoProspect.preparando_abordagem}, synchronize_session="fetch")
+        )
+        avancou = linhas == 1
+
+    mensagem = f"{user.nome} adicionou manualmente: {', '.join(nomes)}."
+    if avancou:
+        mensagem += " A empresa avançou para Preparando abordagem."
+    registrar_evento(db, empresa.id, "decisor_adicionado_manual", "humano", mensagem, usuario_id=str(user.id))
+    db.commit()
+    return _montar_ficha(db, armazenamento, empresa_id, user.papel)
 
 
 def _arquivo_do_relatorio(

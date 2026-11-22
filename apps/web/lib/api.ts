@@ -374,6 +374,7 @@ export interface Ficha {
   destinos?: DestinoEstado[];
   relatorio_disponivel: boolean;
   eventos: Evento[];
+  permite_decisor_manual: boolean;
 }
 
 /** Baixa um arquivo protegido por login (o navegador não manda o token em links e imagens comuns). */
