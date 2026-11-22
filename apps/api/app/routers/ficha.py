@@ -12,9 +12,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.artefatos import Armazenamento, chave_de, chave_relatorio, get_armazenamento
+from app.crm import EVENTOS_DE_PROBLEMA
 from app.db import get_db
 from app.deps import get_current_user, require_role
 from app.models import Auditoria, Contato, Empresa, EstadoProspect, Evento, Papel, Sequencia, Toque, Usuario
+from app.queue import Fila, get_fila
 from app.routers.crm import DestinoOut, destinos_out
 from app.routers.prospeccao import (
     AuditoriaResumoOut,
@@ -22,6 +24,7 @@ from app.routers.prospeccao import (
     ConfirmacaoDominioOut,
     EmpresaOut,
     EventoOut,
+    _enfileirar,
     _resumo_auditoria,
     _ultima_auditoria,
     _ultimo_dossie,
@@ -30,6 +33,9 @@ from app.routers.qualificacao import QualificacaoOut, ultima_qualificacao
 from app.timeline import registrar_evento
 
 EVENTOS_DE_MAPEAMENTO = ("decisores_encontrados", "sem_decisores")
+# Falhas de processamento que o vendedor pode tentar de novo pela ficha — excluídas as que já têm uma
+# resolução própria (confirmar o site) em vez de um simples reenfileiramento (CONSTITUICAO §13).
+EVENTOS_RETENTAVEIS = set(EVENTOS_DE_PROBLEMA) - {"confirmacao_dominio", "dominio_ja_cadastrado"}
 
 router = APIRouter(tags=["ficha do prospect"])
 
@@ -224,6 +230,7 @@ class FichaOut(BaseModel):
     eventos: list[EventoOut]
     permite_decisor_manual: bool
     confirmacao_dominio: ConfirmacaoDominioOut | None
+    permite_tentar_novamente: bool
 
 
 class DecisorManualIn(BaseModel):
@@ -277,6 +284,10 @@ def _confirmacao_dominio(empresa: Empresa, eventos: list[Evento]) -> Confirmacao
         mensagem=str(dados.get("mensagem", "")),
         candidatos=[CandidatoDominioOut.model_validate(c) for c in dados.get("candidatos", [])],
     )
+
+
+def _permite_tentar_novamente(eventos: list[Evento]) -> bool:
+    return bool(eventos) and eventos[-1].tipo in EVENTOS_RETENTAVEIS
 
 
 def _dossie(db: Session, empresa_id: uuid.UUID) -> DossieCompletoOut | None:
@@ -385,6 +396,7 @@ def _montar_ficha(
         ],
         permite_decisor_manual=_permite_decisor_manual(db, empresa),
         confirmacao_dominio=_confirmacao_dominio(empresa, eventos),
+        permite_tentar_novamente=_permite_tentar_novamente(eventos),
     )
 
 
@@ -454,6 +466,34 @@ def adicionar_decisores_manual(
     if avancou:
         mensagem += " A empresa avançou para Preparando abordagem."
     registrar_evento(db, empresa.id, "decisor_adicionado_manual", "humano", mensagem, usuario_id=str(user.id))
+    db.commit()
+    return _montar_ficha(db, armazenamento, empresa_id, user.papel)
+
+
+@router.post("/empresas/{empresa_id}/tentar-novamente", response_model=FichaOut)
+async def tentar_novamente(
+    empresa_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    armazenamento: Armazenamento = Depends(get_armazenamento),
+    fila: Fila = Depends(get_fila),
+    user: Usuario = Depends(require_role(Papel.admin, Papel.vendedor)),
+) -> FichaOut:
+    """Reenfileira o processamento depois de uma falha recuperável (CONSTITUICAO §13) — o pipeline retoma de
+    onde parou, conforme o estado atual da empresa (workers/slp_workers/orchestrator/pipeline.py). Nunca
+    contorna o robots.txt: se a causa persistir, a próxima tentativa falha com a mesma mensagem."""
+    _empresa_ou_404(db, empresa_id)
+    eventos = db.scalars(
+        select(Evento).where(Evento.empresa_id == empresa_id).order_by(Evento.ocorrido_em)
+    ).all()
+    if not _permite_tentar_novamente(eventos):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Essa empresa não está travada por uma falha que pode ser tentada de novo.",
+        )
+    await _enfileirar(db, fila, empresa_id)
+    registrar_evento(
+        db, empresa_id, "reenviado_manualmente", "humano", f"{user.nome} pediu para tentar de novo."
+    )
     db.commit()
     return _montar_ficha(db, armazenamento, empresa_id, user.papel)
 

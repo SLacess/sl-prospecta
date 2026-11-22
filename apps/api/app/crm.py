@@ -79,6 +79,7 @@ EVENTOS_DE_PROBLEMA = {
     "confirmacao_dominio": "aguarda confirmação do site",
     "dominio_ja_cadastrado": "site já pertence a outra empresa",
     "falha_enfileirar": "não entrou na fila",
+    "teto_por_empresa": "teto de custo de IA atingido",
 }
 
 

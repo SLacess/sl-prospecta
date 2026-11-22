@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-import { EMPRESA, FICHA, FICHA_AGUARDANDO_SITE, prepararPainel } from "./api-falsa";
+import { EMPRESA, FICHA, FICHA_AGUARDANDO_SITE, FICHA_PROCESSAMENTO_TRAVADO, prepararPainel } from "./api-falsa";
 
 const URL_FICHA = `/empresas/${EMPRESA.id}`;
 
@@ -90,6 +90,20 @@ test("confirmação de site pendente na ficha sem violações de acessibilidade"
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
     .analyze();
   expect(resultado.violations, JSON.stringify(resultado.violations, null, 2)).toEqual([]);
+});
+
+test("processamento travado mostra o motivo e permite tentar de novo", async ({ page }) => {
+  const { tentativas } = await prepararPainel(page, { ficha: FICHA_PROCESSAMENTO_TRAVADO });
+  await page.goto(URL_FICHA);
+
+  const regiao = page.getByRole("region", { name: "Processamento travado" });
+  await expect(regiao).toBeVisible();
+  await expect(regiao).toContainText("robots.txt do site não permite");
+
+  await page.getByRole("button", { name: "Tentar novamente" }).click();
+  await expect.poll(() => tentativas).toEqual([EMPRESA.id]);
+  await expect(page.getByRole("heading", { name: "Processamento travado" })).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText("Empresa reenviada para processamento.");
 });
 
 test("ficha sem violações de acessibilidade", async ({ page }) => {

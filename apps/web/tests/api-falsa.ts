@@ -269,6 +269,7 @@ export const FICHA = {
   relatorio_disponivel: true,
   eventos: EVENTOS_FINAIS,
   confirmacao_dominio: null as { mensagem: string; candidatos: typeof CANDIDATOS } | null,
+  permite_tentar_novamente: false,
 };
 
 export const FICHA_AGUARDANDO_SITE = {
@@ -280,6 +281,23 @@ export const FICHA_AGUARDANDO_SITE = {
     mensagem: "Encontrei 2 site(s) possível(is). Confirme qual é o oficial para continuar.",
     candidatos: CANDIDATOS,
   },
+};
+
+export const FICHA_PROCESSAMENTO_TRAVADO = {
+  ...FICHA,
+  empresa: { ...FICHA.empresa, dominio: null, estado: "PESQUISANDO" },
+  qualificacao: null as unknown,
+  decisores: [] as unknown[],
+  eventos: [
+    ...EVENTOS_INICIAIS,
+    evento(
+      3,
+      "site_indisponivel",
+      "Não foi possível ler o site hospitalexemplo.com.br: o robots.txt do site não permite a leitura " +
+        "automática desta página.",
+    ),
+  ],
+  permite_tentar_novamente: true,
 };
 
 export const CONFIG_SCORE = {
@@ -439,6 +457,9 @@ interface Opcoes {
   ficha?: typeof FICHA;
   /** Ficha depois que o vendedor confirma o site direto pela página da ficha (não pelo acompanhamento). */
   fichaDepoisDaConfirmacao?: typeof FICHA;
+  /** Ficha depois de "Tentar novamente". */
+  fichaDepoisDeTentarNovamente?: typeof FICHA;
+  respostaTentarNovamente?: { status: number; corpo: unknown };
   papel?: "admin" | "vendedor" | "leitura";
   respostaRevisao?: { status: number; corpo: unknown };
   respostaConfigScore?: { status: number; corpo: unknown };
@@ -459,6 +480,7 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
   const posts: unknown[] = [];
   const revisoes: unknown[] = [];
   const confirmacoes: unknown[] = [];
+  const tentativas: string[] = [];
   const configs: unknown[] = [];
   const envios: string[] = [];
   const acoesLote: unknown[] = [];
@@ -523,6 +545,15 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
           { ...fichaAtual, empresa: { ...fichaAtual.empresa, dominio: (req.postDataJSON() as { dominio: string }).dominio }, confirmacao_dominio: null };
       }
       return json(route, r.status, r.corpo);
+    }
+    if (url.pathname === `/empresas/${EMPRESA.id}/tentar-novamente` && req.method() === "POST") {
+      tentativas.push(EMPRESA.id);
+      if (opcoes.respostaTentarNovamente) {
+        const r = opcoes.respostaTentarNovamente;
+        return json(route, r.status, r.corpo);
+      }
+      fichaAtual = opcoes.fichaDepoisDeTentarNovamente ?? { ...fichaAtual, permite_tentar_novamente: false };
+      return json(route, 200, fichaAtual);
     }
     if (url.pathname === "/auth/me") {
       return json(route, 200, { id: "u1", nome: "Marcos", email: "m@x.com", papel: opcoes.papel ?? "vendedor" });
@@ -612,5 +643,5 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
     return json(route, 404, { detail: "não simulado" });
   });
 
-  return { posts, confirmacoes, revisoes, configs, envios, acoesLote, mudancas, consultasQuadro };
+  return { posts, confirmacoes, tentativas, revisoes, configs, envios, acoesLote, mudancas, consultasQuadro };
 }

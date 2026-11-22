@@ -238,3 +238,59 @@ def test_ficha_nao_mostra_confirmacao_depois_de_confirmado(client, db, fila, ven
 
     r = client.get(f"/empresas/{empresa.id}/ficha", headers=vendedor_headers)
     assert r.json()["confirmacao_dominio"] is None
+
+
+def _empresa_com_problema(db, tipo="site_indisponivel", mensagem="Não foi possível ler o site x: robôs."):
+    empresa = Empresa(nome="X", dominio="x.com.br", fonte="manual", estado=EstadoProspect.pesquisando)
+    db.add(empresa)
+    db.flush()
+    registrar_evento(db, empresa.id, tipo, "sistema", mensagem)
+    db.commit()
+    return empresa
+
+
+def test_ficha_permite_tentar_novamente_apos_falha(client, db, vendedor_headers, armazenamento):
+    empresa = _empresa_com_problema(db)
+    r = client.get(f"/empresas/{empresa.id}/ficha", headers=vendedor_headers)
+    assert r.json()["permite_tentar_novamente"] is True
+
+
+@pytest.mark.parametrize("tipo", ["confirmacao_dominio", "dominio_ja_cadastrado"])
+def test_ficha_nao_permite_tentar_novamente_com_resolucao_propria(
+    client, db, vendedor_headers, armazenamento, tipo
+):
+    empresa = _empresa_com_problema(db, tipo=tipo)
+    r = client.get(f"/empresas/{empresa.id}/ficha", headers=vendedor_headers)
+    assert r.json()["permite_tentar_novamente"] is False
+
+
+def test_tentar_novamente_reenfileira_e_registra_evento(client, db, fila, vendedor_headers, armazenamento):
+    empresa = _empresa_com_problema(db)
+    r = client.post(f"/empresas/{empresa.id}/tentar-novamente", headers=vendedor_headers)
+    assert r.status_code == 200, r.text
+    assert fila.enviados == [empresa.id]
+    corpo = r.json()
+    assert corpo["permite_tentar_novamente"] is False
+    assert corpo["eventos"][-1]["tipo"] == "reenviado_manualmente"
+    assert "vendedor" in corpo["eventos"][-1]["mensagem"]
+
+
+def test_tentar_novamente_sem_problema_e_409(client, db, fila, vendedor_headers, armazenamento):
+    empresa = Empresa(nome="X", dominio="x.com.br", fonte="manual", estado=EstadoProspect.qualificando)
+    db.add(empresa)
+    db.commit()
+    r = client.post(f"/empresas/{empresa.id}/tentar-novamente", headers=vendedor_headers)
+    assert r.status_code == 409
+    assert fila.enviados == []
+
+
+def test_tentar_novamente_exige_papel_vendedor_ou_admin(client, db, fila, leitura_headers, armazenamento):
+    empresa = _empresa_com_problema(db)
+    r = client.post(f"/empresas/{empresa.id}/tentar-novamente", headers=leitura_headers)
+    assert r.status_code == 403
+    assert fila.enviados == []
+
+
+def test_tentar_novamente_empresa_inexistente_404(client, fila, vendedor_headers, armazenamento):
+    r = client.post(f"/empresas/{uuid.uuid4()}/tentar-novamente", headers=vendedor_headers)
+    assert r.status_code == 404

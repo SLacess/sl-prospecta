@@ -104,6 +104,7 @@ export default function FichaDoProspect() {
   const [usuario, setUsuario] = useState<UsuarioAtual | null>(null);
   const [movendo, setMovendo] = useState(false);
   const [adicionandoDecisor, setAdicionandoDecisor] = useState(false);
+  const [tentandoNovamente, setTentandoNovamente] = useState(false);
 
   useEffect(() => {
     if (!lerToken()) {
@@ -149,6 +150,21 @@ export default function FichaDoProspect() {
       setAnuncio("Versão web do relatório aberta em nova aba.");
     } catch (e) {
       setErro(e instanceof ErroApi ? e.message : "Não foi possível abrir o relatório.");
+    }
+  }
+
+  async function tentarNovamente() {
+    if (tentandoNovamente) return;
+    setTentandoNovamente(true);
+    setErro("");
+    try {
+      const nova = await apiFetch<Ficha>(`/empresas/${id}/tentar-novamente`, { method: "POST" });
+      setFicha(nova);
+      setAnuncio("Empresa reenviada para processamento.");
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : "Não foi possível tentar de novo.");
+    } finally {
+      setTentandoNovamente(false);
     }
   }
 
@@ -216,6 +232,16 @@ export default function FichaDoProspect() {
                 .catch(() => undefined);
             }}
           />
+        </section>
+      )}
+
+      {ficha.permite_tentar_novamente && (usuario?.papel === "admin" || usuario?.papel === "vendedor") && (
+        <section className="card" aria-labelledby="titulo-tentar-novamente" style={{ marginTop: "1.5rem" }}>
+          <h2 id="titulo-tentar-novamente" style={{ marginTop: 0 }}>Processamento travado</h2>
+          <p>{ficha.eventos.at(-1)?.mensagem}</p>
+          <button type="button" onClick={tentarNovamente} aria-disabled={tentandoNovamente}>
+            {tentandoNovamente ? "Tentando…" : "Tentar novamente"}
+          </button>
         </section>
       )}
 

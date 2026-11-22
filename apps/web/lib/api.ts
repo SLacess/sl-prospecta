@@ -381,6 +381,7 @@ export interface Ficha {
   eventos: Evento[];
   permite_decisor_manual: boolean;
   confirmacao_dominio: ConfirmacaoDominio | null;
+  permite_tentar_novamente: boolean;
 }
 
 /** Baixa um arquivo protegido por login (o navegador não manda o token em links e imagens comuns). */
