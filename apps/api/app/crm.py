@@ -76,6 +76,8 @@ EVENTOS_DE_PROBLEMA = {
     "pesquisa_falhou": "pesquisa falhou",
     "analise_falhou": "análise falhou",
     "mapeamento_falhou": "busca de decisores falhou",
+    "auditoria_falhou": "auditoria falhou",
+    "qualificacao_falhou": "qualificação falhou",
     "confirmacao_dominio": "aguarda confirmação do site",
     "dominio_ja_cadastrado": "site já pertence a outra empresa",
     "falha_enfileirar": "não entrou na fila",

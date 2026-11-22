@@ -93,6 +93,15 @@ público para o relatório da empresa (`/diagnostico/{slug}`, tabela `microsites
 CONSTITUICAO §17 já reserva para a Fase 5). Sem essa variável, nada muda — o Redator escreve sem link,
 como sempre.
 
+**Automação dos pontos de parada (22/11/2026):** ficha ganhou "Confirmar site oficial" (quando o
+Pesquisador acha mais de um candidato) e "Tentar novamente" (falhas recuperáveis: site indisponível,
+erro de conexão, teto de custo etc.) — ambos disponíveis em qualquer estado, não só na janela de
+acompanhamento ao vivo. Separadamente (ADR 0018): qualificação, mapeamento de decisores, geração de
+sequência e geração do mini-relatório em PDF rodam sozinhos num cron a cada 15-30min (antes, só via
+`slp_workers.cli` manual) — todos idempotentes, sem risco de loop de falha, já param nos tetos de
+custo/crédito existentes. O Mensageiro continua disparando só manualmente (decisão da ADR 0016, não
+reaberta), mas agora respeita a janela de horário do §9.1 mesmo no disparo manual.
+
 Critério para avançar: 50 e-mails aprovados por Marcos com menos de 20% de texto alterado.
 Fase 2 concluída em 18/11/2026 (lote de 100, score e decisores coerentes — ver ADR 0015).
 Próxima: **Fase 4 — Conversa, agenda e painel**. Não antecipe funcionalidades de fases futuras sem pedido explícito.

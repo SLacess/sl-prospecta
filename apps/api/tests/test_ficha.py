@@ -249,8 +249,16 @@ def _empresa_com_problema(db, tipo="site_indisponivel", mensagem="N√£o foi poss√
     return empresa
 
 
-def test_ficha_permite_tentar_novamente_apos_falha(client, db, vendedor_headers, armazenamento):
-    empresa = _empresa_com_problema(db)
+@pytest.mark.parametrize(
+    "tipo",
+    [
+        "site_indisponivel", "auditoria_bloqueada", "pesquisa_falhou", "analise_falhou",
+        "mapeamento_falhou", "falha_enfileirar", "teto_por_empresa", "auditoria_falhou",
+        "qualificacao_falhou",
+    ],
+)
+def test_ficha_permite_tentar_novamente_apos_falha(client, db, vendedor_headers, armazenamento, tipo):
+    empresa = _empresa_com_problema(db, tipo=tipo)
     r = client.get(f"/empresas/{empresa.id}/ficha", headers=vendedor_headers)
     assert r.json()["permite_tentar_novamente"] is True
 
