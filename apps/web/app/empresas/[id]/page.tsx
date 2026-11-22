@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { AuditoriaTecnica } from "@/app/auditoria-tecnica";
+import { ConfirmarSite } from "@/app/confirmar-site";
 import { MoverEstado } from "@/app/mover-estado";
 import {
   apiFetch,
@@ -199,6 +200,24 @@ export default function FichaDoProspect() {
           </div>
         )}
       </dl>
+
+      {ficha.confirmacao_dominio && (usuario?.papel === "admin" || usuario?.papel === "vendedor") && (
+        <section className="card" aria-labelledby="titulo-confirmar-site" style={{ marginTop: "1.5rem" }}>
+          <h2 id="titulo-confirmar-site" style={{ marginTop: 0 }}>Confirmar site oficial</h2>
+          <ConfirmarSite
+            empresaId={empresa.id}
+            nome={empresa.nome}
+            mensagem={ficha.confirmacao_dominio.mensagem}
+            candidatos={ficha.confirmacao_dominio.candidatos}
+            aoConfirmar={(dominio) => {
+              setAnuncio(`Site ${dominio} confirmado. A pesquisa continua.`);
+              apiFetch<Ficha>(`/empresas/${id}/ficha`)
+                .then(setFicha)
+                .catch(() => undefined);
+            }}
+          />
+        </section>
+      )}
 
       {ficha.qualificacao && <QualificacaoDaEmpresa qualificacao={ficha.qualificacao} />}
       {ficha.qualificacao && (

@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-import { EMPRESA, FICHA, prepararPainel } from "./api-falsa";
+import { EMPRESA, FICHA, FICHA_AGUARDANDO_SITE, prepararPainel } from "./api-falsa";
 
 const URL_FICHA = `/empresas/${EMPRESA.id}`;
 
@@ -63,6 +63,33 @@ test("sem relatório, a ficha explica quando ele fica disponível", async ({ pag
   await page.goto(URL_FICHA);
   await expect(page.getByText("O relatório fica disponível quando a análise da auditoria termina.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Baixar relatório (PDF)" })).toHaveCount(0);
+});
+
+test("confirmar o site oficial pela ficha (sem depender do acompanhamento ao vivo)", async ({ page }) => {
+  const { confirmacoes } = await prepararPainel(page, { ficha: FICHA_AGUARDANDO_SITE });
+  await page.goto(URL_FICHA);
+
+  const grupo = page.getByRole("group", { name: "Qual é o site oficial de Hospital Exemplo S.A.?" });
+  await expect(grupo).toBeVisible();
+  await expect(page.locator(".resumo")).toContainText("Ainda não identificado");
+
+  await page.getByRole("radio", { name: /unimed-b\.com\.br/ }).check();
+  await page.getByRole("button", { name: "Confirmar site" }).click();
+
+  await expect.poll(() => confirmacoes).toEqual([{ dominio: "unimed-b.com.br" }]);
+  await expect(grupo).toHaveCount(0);
+  await expect(page.locator(".resumo")).toContainText("unimed-b.com.br");
+  await expect(page.getByRole("status")).toContainText("Site unimed-b.com.br confirmado.");
+});
+
+test("confirmação de site pendente na ficha sem violações de acessibilidade", async ({ page }) => {
+  await prepararPainel(page, { ficha: FICHA_AGUARDANDO_SITE });
+  await page.goto(URL_FICHA);
+  await expect(page.getByRole("group", { name: /Qual é o site oficial/ })).toBeVisible();
+  const resultado = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(resultado.violations, JSON.stringify(resultado.violations, null, 2)).toEqual([]);
 });
 
 test("ficha sem violações de acessibilidade", async ({ page }) => {
