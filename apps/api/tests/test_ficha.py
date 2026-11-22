@@ -7,6 +7,12 @@ import pytest
 from app.artefatos import chave_relatorio, get_armazenamento
 from app.main import app
 from app.models import Auditoria, Dossie, Empresa, EstadoProspect, Evento
+from app.timeline import registrar_evento
+
+CANDIDATOS = [
+    {"dominio": "unimed-a.com.br", "nome_oficial": "Unimed A", "evidencia_url": "https://unimed-a.com.br/"},
+    {"dominio": "unimed-b.com.br", "nome_oficial": "Unimed B", "evidencia_url": "https://unimed-b.com.br/"},
+]
 
 
 class ArmazenamentoFalso:
@@ -197,3 +203,38 @@ def test_rotas_exigem_login(client, db, armazenamento, rota):
 
 def test_empresa_inexistente_404(client, vendedor_headers, armazenamento):
     assert client.get(f"/empresas/{uuid.uuid4()}/ficha", headers=vendedor_headers).status_code == 404
+
+
+def test_ficha_mostra_confirmacao_de_site_pendente(client, db, vendedor_headers, armazenamento):
+    empresa = Empresa(nome="Unimed", dominio=None, fonte="manual", estado=EstadoProspect.pesquisando)
+    db.add(empresa)
+    db.flush()
+    registrar_evento(
+        db, empresa.id, "confirmacao_dominio", "sistema",
+        "Encontrei 2 site(s) possível(is). Confirme qual é o oficial para continuar.",
+        candidatos=CANDIDATOS,
+    )
+    db.commit()
+
+    r = client.get(f"/empresas/{empresa.id}/ficha", headers=vendedor_headers)
+    assert r.status_code == 200, r.text
+    confirmacao = r.json()["confirmacao_dominio"]
+    assert [c["dominio"] for c in confirmacao["candidatos"]] == ["unimed-a.com.br", "unimed-b.com.br"]
+    assert "Confirme" in confirmacao["mensagem"]
+
+
+def test_ficha_nao_mostra_confirmacao_depois_de_confirmado(client, db, fila, vendedor_headers, armazenamento):
+    empresa = Empresa(nome="Unimed", dominio=None, fonte="manual", estado=EstadoProspect.pesquisando)
+    db.add(empresa)
+    db.flush()
+    registrar_evento(
+        db, empresa.id, "confirmacao_dominio", "sistema", "Confirme qual é o oficial.", candidatos=CANDIDATOS
+    )
+    db.commit()
+
+    assert client.post(
+        f"/empresas/{empresa.id}/dominio", json={"dominio": "unimed-b.com.br"}, headers=vendedor_headers
+    ).status_code == 200
+
+    r = client.get(f"/empresas/{empresa.id}/ficha", headers=vendedor_headers)
+    assert r.json()["confirmacao_dominio"] is None

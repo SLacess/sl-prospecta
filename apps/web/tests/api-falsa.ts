@@ -268,6 +268,18 @@ export const FICHA = {
   ] as unknown[],
   relatorio_disponivel: true,
   eventos: EVENTOS_FINAIS,
+  confirmacao_dominio: null as { mensagem: string; candidatos: typeof CANDIDATOS } | null,
+};
+
+export const FICHA_AGUARDANDO_SITE = {
+  ...FICHA,
+  empresa: { ...FICHA.empresa, dominio: null, estado: "PESQUISANDO" },
+  qualificacao: null as unknown,
+  decisores: [] as unknown[],
+  confirmacao_dominio: {
+    mensagem: "Encontrei 2 site(s) possível(is). Confirme qual é o oficial para continuar.",
+    candidatos: CANDIDATOS,
+  },
 };
 
 export const CONFIG_SCORE = {
@@ -425,6 +437,8 @@ interface Opcoes {
   andamentoDepoisDaConfirmacao?: Detalhe[];
   respostaConfirmacao?: { status: number; corpo: unknown };
   ficha?: typeof FICHA;
+  /** Ficha depois que o vendedor confirma o site direto pela página da ficha (não pelo acompanhamento). */
+  fichaDepoisDaConfirmacao?: typeof FICHA;
   papel?: "admin" | "vendedor" | "leitura";
   respostaRevisao?: { status: number; corpo: unknown };
   respostaConfigScore?: { status: number; corpo: unknown };
@@ -454,6 +468,7 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
   const consultasQuadro: string[] = [];
   let andamento = opcoes.andamento ?? ANDAMENTO_PADRAO;
   let consulta = 0;
+  let fichaAtual = opcoes.ficha ?? FICHA;
 
   await page.addInitScript(() => sessionStorage.setItem("slp_token", "token-de-teste"));
 
@@ -501,6 +516,11 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
       if (r.status === 200 && opcoes.andamentoDepoisDaConfirmacao) {
         andamento = opcoes.andamentoDepoisDaConfirmacao;
         consulta = 0;
+      }
+      if (r.status === 200) {
+        fichaAtual =
+          opcoes.fichaDepoisDaConfirmacao ??
+          { ...fichaAtual, empresa: { ...fichaAtual.empresa, dominio: (req.postDataJSON() as { dominio: string }).dominio }, confirmacao_dominio: null };
       }
       return json(route, r.status, r.corpo);
     }
@@ -570,7 +590,7 @@ export async function prepararPainel(page: Page, opcoes: Opcoes = {}) {
       }
       return json(route, 200, REVISAO);
     }
-    if (url.pathname === `/empresas/${EMPRESA.id}/ficha`) return json(route, 200, opcoes.ficha ?? FICHA);
+    if (url.pathname === `/empresas/${EMPRESA.id}/ficha`) return json(route, 200, fichaAtual);
     if (url.pathname === `/empresas/${EMPRESA.id}/relatorio.pdf`) {
       return route.fulfill({ status: 200, headers: { ...CORS, "Content-Type": "application/pdf" }, body: "%PDF-1.7" });
     }

@@ -129,6 +129,11 @@ export interface DossieResumo {
   criado_em: string;
 }
 
+export interface ConfirmacaoDominio {
+  mensagem: string;
+  candidatos: CandidatoDominio[];
+}
+
 export interface CandidatoDominio {
   dominio: string;
   nome_oficial: string;
@@ -177,7 +182,7 @@ export interface EmpresaDetalhe extends Empresa {
   eventos: Evento[];
   dossie: DossieResumo | null;
   auditoria: AuditoriaResumo | null;
-  confirmacao_dominio: { mensagem: string; candidatos: CandidatoDominio[] } | null;
+  confirmacao_dominio: ConfirmacaoDominio | null;
 }
 
 export interface ProspeccaoResposta {
@@ -375,6 +380,7 @@ export interface Ficha {
   relatorio_disponivel: boolean;
   eventos: Evento[];
   permite_decisor_manual: boolean;
+  confirmacao_dominio: ConfirmacaoDominio | null;
 }
 
 /** Baixa um arquivo protegido por login (o navegador não manda o token em links e imagens comuns). */

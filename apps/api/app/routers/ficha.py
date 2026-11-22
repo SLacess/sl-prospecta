@@ -18,6 +18,8 @@ from app.models import Auditoria, Contato, Empresa, EstadoProspect, Evento, Pape
 from app.routers.crm import DestinoOut, destinos_out
 from app.routers.prospeccao import (
     AuditoriaResumoOut,
+    CandidatoDominioOut,
+    ConfirmacaoDominioOut,
     EmpresaOut,
     EventoOut,
     _resumo_auditoria,
@@ -221,6 +223,7 @@ class FichaOut(BaseModel):
     relatorio_disponivel: bool
     eventos: list[EventoOut]
     permite_decisor_manual: bool
+    confirmacao_dominio: ConfirmacaoDominioOut | None
 
 
 class DecisorManualIn(BaseModel):
@@ -261,6 +264,18 @@ def _permite_decisor_manual(db: Session, empresa: Empresa) -> bool:
         empresa.estado == EstadoProspect.mapeando_decisores
         and _mapeamento_tentado(db, empresa.id)
         and _contatos_validos_count(db, empresa.id) == 0
+    )
+
+
+def _confirmacao_dominio(empresa: Empresa, eventos: list[Evento]) -> ConfirmacaoDominioOut | None:
+    """Pedido de confirmação de site pendente (CONSTITUICAO §7.2) — só quando ainda não há domínio e o
+    último evento é o próprio pedido (confirmar em qualquer outra hora o deixaria desatualizado)."""
+    if empresa.dominio is not None or not eventos or eventos[-1].tipo != "confirmacao_dominio":
+        return None
+    dados = eventos[-1].dados_json or {}
+    return ConfirmacaoDominioOut(
+        mensagem=str(dados.get("mensagem", "")),
+        candidatos=[CandidatoDominioOut.model_validate(c) for c in dados.get("candidatos", [])],
     )
 
 
@@ -369,6 +384,7 @@ def _montar_ficha(
             for e in eventos
         ],
         permite_decisor_manual=_permite_decisor_manual(db, empresa),
+        confirmacao_dominio=_confirmacao_dominio(empresa, eventos),
     )
 
 
