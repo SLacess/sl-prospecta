@@ -5,6 +5,7 @@ const ROTULO_FONTE: Record<string, string> = {
   "web+apollo": "Apollo",
   "web+apify": "Apify",
   planilha: "Planilha",
+  manual: "Cadastrado manualmente",
 };
 /** Quem verificou o e-mail quando o nome veio de fonte pública (ADR 0012). */
 const ROTULO_EMAIL_POR: Record<string, string> = {
@@ -23,7 +24,13 @@ function host(url: string): string {
  * Decisores da empresa (CONSTITUICAO §7.3, Etapa 4): até 3, um por área. A situação do e-mail aparece sempre
  * escrita (§2.8). O LinkedIn é só um link; a plataforma não lê perfis (CLAUDE.md, regra 7).
  */
-export function DecisoresDaEmpresa({ decisores }: { decisores: Decisor[] }) {
+interface Props {
+  decisores: Decisor[];
+  permiteDecisorManual: boolean;
+  aoAbrirDecisorManual: () => void;
+}
+
+export function DecisoresDaEmpresa({ decisores, permiteDecisorManual, aoAbrirDecisorManual }: Props) {
   return (
     <section className="card" aria-labelledby="titulo-decisores" style={{ marginTop: "1.5rem" }}>
       <h2 id="titulo-decisores" style={{ marginTop: 0 }}>Decisores</h2>
@@ -84,6 +91,11 @@ export function DecisoresDaEmpresa({ decisores }: { decisores: Decisor[] }) {
       <p className="hint">
         Só e-mails verificados contam como contato válido. Nada é enviado nesta fase.
       </p>
+      {permiteDecisorManual && (
+        <button type="button" className="secundario" onClick={aoAbrirDecisorManual}>
+          Adicionar decisor manualmente
+        </button>
+      )}
     </section>
   );
 }

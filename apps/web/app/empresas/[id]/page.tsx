@@ -17,6 +17,7 @@ import {
   type UsuarioAtual,
 } from "@/lib/api";
 
+import { AdicionarDecisor } from "./adicionar-decisor";
 import { DecisoresDaEmpresa } from "./decisores";
 import { QualificacaoDaEmpresa } from "./qualificacao";
 import { RevisaoAuditoria } from "./revisao";
@@ -101,6 +102,7 @@ export default function FichaDoProspect() {
   const [baixando, setBaixando] = useState(false);
   const [usuario, setUsuario] = useState<UsuarioAtual | null>(null);
   const [movendo, setMovendo] = useState(false);
+  const [adicionandoDecisor, setAdicionandoDecisor] = useState(false);
 
   useEffect(() => {
     if (!lerToken()) {
@@ -199,7 +201,13 @@ export default function FichaDoProspect() {
       </dl>
 
       {ficha.qualificacao && <QualificacaoDaEmpresa qualificacao={ficha.qualificacao} />}
-      {ficha.qualificacao && <DecisoresDaEmpresa decisores={ficha.decisores ?? []} />}
+      {ficha.qualificacao && (
+        <DecisoresDaEmpresa
+          decisores={ficha.decisores ?? []}
+          permiteDecisorManual={ficha.permite_decisor_manual}
+          aoAbrirDecisorManual={() => setAdicionandoDecisor(true)}
+        />
+      )}
       {ficha.sequencias && ficha.sequencias.length > 0 && (
         <SequenciaDaEmpresa sequencias={ficha.sequencias} />
       )}
@@ -339,6 +347,22 @@ export default function FichaDoProspect() {
             setMovendo(false);
             requestAnimationFrame(() => document.getElementById("mudar-estado")?.focus());
           }}
+        />
+      )}
+
+      {adicionandoDecisor && (
+        <AdicionarDecisor
+          empresaId={empresa.id}
+          aoAdicionar={(novaFicha) => {
+            setAdicionandoDecisor(false);
+            setFicha(novaFicha);
+            setAnuncio(
+              novaFicha.empresa.estado !== empresa.estado
+                ? `Decisor adicionado. Estado alterado para ${ROTULO_ESTADO[novaFicha.empresa.estado] ?? novaFicha.empresa.estado}.`
+                : "Decisor adicionado.",
+            );
+          }}
+          aoFechar={() => setAdicionandoDecisor(false)}
         />
       )}
 
