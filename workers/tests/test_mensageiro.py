@@ -4,6 +4,7 @@ import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import pytest
 from cryptography.fernet import Fernet
@@ -18,6 +19,10 @@ from slp_workers.settings import WorkerConfig
 from tests.conftest import FIELD_ENCRYPTION_KEY, inserir_empresa
 
 REFRESH_PLANO = "refresh-fake"
+# Terça (weekday()==1), 9h de Brasília: dentro da janela do §9.1 — horário fixo para os testes não
+# dependerem de quando rodam de verdade.
+DENTRO_DA_JANELA = datetime(2026, 1, 13, 9, 0, tzinfo=ZoneInfo("America/Sao_Paulo"))
+FORA_DA_JANELA = datetime(2026, 1, 17, 9, 0, tzinfo=ZoneInfo("America/Sao_Paulo"))  # sábado
 
 
 class IAFalsa:
@@ -122,9 +127,10 @@ def _inserir_caixa(
     return caixa_id
 
 
-def _deps(engine, config, gmail=None, ia=None) -> DependenciasMensageiro:
+def _deps(engine, config, gmail=None, ia=None, agora=None) -> DependenciasMensageiro:
     return DependenciasMensageiro(
-        engine=engine, ia=ia or IAFalsa(), config=config, gmail=gmail or GmailFalso()
+        engine=engine, ia=ia or IAFalsa(), config=config, gmail=gmail or GmailFalso(),
+        agora=agora or DENTRO_DA_JANELA,
     )
 
 
@@ -141,6 +147,42 @@ def test_nao_envia_se_operacao_pausada(engine, config):
     resultado = asyncio.run(Mensageiro(_deps(engine, config, gmail=gmail), toque_id).executar())
 
     assert resultado == "operacao_pausada"
+    assert gmail.envios == []
+
+
+@pytest.mark.parametrize(
+    ("quando", "esperado"),
+    [
+        (datetime(2026, 1, 13, 8, 0, tzinfo=ZoneInfo("America/Sao_Paulo")), True),  # terça, início da manhã
+        (datetime(2026, 1, 13, 10, 29, tzinfo=ZoneInfo("America/Sao_Paulo")), True),
+        (datetime(2026, 1, 13, 10, 30, tzinfo=ZoneInfo("America/Sao_Paulo")), False),  # fechou a manhã
+        (datetime(2026, 1, 13, 12, 0, tzinfo=ZoneInfo("America/Sao_Paulo")), False),  # entre as duas janelas
+        (datetime(2026, 1, 13, 14, 0, tzinfo=ZoneInfo("America/Sao_Paulo")), True),  # início da tarde
+        (datetime(2026, 1, 13, 15, 59, tzinfo=ZoneInfo("America/Sao_Paulo")), True),
+        (datetime(2026, 1, 13, 16, 0, tzinfo=ZoneInfo("America/Sao_Paulo")), False),  # fechou a tarde
+        (datetime(2026, 1, 12, 9, 0, tzinfo=ZoneInfo("America/Sao_Paulo")), False),  # segunda
+        (datetime(2026, 1, 16, 9, 0, tzinfo=ZoneInfo("America/Sao_Paulo")), False),  # sexta
+        (FORA_DA_JANELA, False),  # sábado
+    ],
+)
+def test_dentro_da_janela_de_envio(quando, esperado):
+    from slp_workers.orchestrator.mensageiro import dentro_da_janela_de_envio
+
+    assert dentro_da_janela_de_envio(quando) is esperado
+
+
+def test_nao_envia_fora_da_janela_de_horario(engine, config):
+    empresa_id = inserir_empresa(engine, estado="PREPARANDO_ABORDAGEM")
+    contato_id = _inserir_contato(engine, empresa_id)
+    toque_id = _inserir_toque(engine, empresa_id, contato_id)
+    _inserir_caixa(engine)
+    gmail = GmailFalso()
+
+    resultado = asyncio.run(
+        Mensageiro(_deps(engine, config, gmail=gmail, agora=FORA_DA_JANELA), toque_id).executar()
+    )
+
+    assert resultado == "fora_da_janela_de_envio"
     assert gmail.envios == []
 
 

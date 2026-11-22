@@ -7,6 +7,8 @@ manual é uma rede de segurança a mais além dos disjuntores da Tarefa 4 (bounc
 operação está pausada (`orchestrator/operacao.py`), e nesse caso não faz nada.
 
 Para cada toque aprovado, não enviado e de canal e-mail:
+0. só segue dentro da janela de horário do §9.1 (terça a quinta, 8h-10h30 e 14h-16h); fora dela, o toque
+   continua pendente para a próxima rodada — mesmo disparado manualmente, o horário nunca é ignorado.
 1. roda o Guardião se ele ainda não tiver avaliado o texto final (mesma checagem do `avaliar-guardiao`
    manual); bloqueado pelo Guardião não é enviado — fica visível na Caixa de Aprovação para o vendedor
    decidir (reaprovar com outro texto, por exemplo).
@@ -29,6 +31,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import Engine, func, select, update
 
@@ -39,14 +42,29 @@ from slp_workers.orchestrator.budget import inicio_do_dia
 from slp_workers.orchestrator.guardiao import DependenciasGuardiao, Guardiao
 from slp_workers.orchestrator.operacao import esta_pausado
 from slp_workers.outreach.gmail import ClienteGmail, ErroGmail
-from slp_workers.settings import WorkerConfig
+from slp_workers.settings import WorkerConfig, get_config
 
 PREPARANDO_ABORDAGEM = "PREPARANDO_ABORDAGEM"
 EM_SEQUENCIA = "EM_SEQUENCIA"
 
+# Janela de horário inteligente padrão (CONSTITUICAO §9.1): terça a quinta, 8h-10h30 e 14h-16h.
+# `datetime.weekday()`: segunda=0 ... domingo=6. Ainda não há fuso por destinatário (o §9.1 já prevê isso
+# como ideal) — usa o fuso de negócio único (`business_timezone`), suficiente para o alcance atual (Brasil).
+DIAS_DE_ENVIO = {1, 2, 3}  # terça, quarta, quinta
+JANELAS_DE_ENVIO_MINUTOS = ((8 * 60, 10 * 60 + 30), (14 * 60, 16 * 60))
+
+
+def dentro_da_janela_de_envio(agora: datetime | None = None) -> bool:
+    local = (agora or datetime.now(UTC)).astimezone(ZoneInfo(get_config().business_timezone))
+    if local.weekday() not in DIAS_DE_ENVIO:
+        return False
+    minutos = local.hour * 60 + local.minute
+    return any(ini <= minutos < fim for ini, fim in JANELAS_DE_ENVIO_MINUTOS)
+
+
 ResultadoMensageiro = Literal[
     "enviado", "bloqueado_pelo_guardiao", "sem_caixa_disponivel", "erro_de_caixa", "erro_de_envio",
-    "operacao_pausada",
+    "operacao_pausada", "fora_da_janela_de_envio",
 ]
 
 
@@ -59,6 +77,8 @@ class DependenciasMensageiro:
     # Caixas que já falharam nesta rodada (compartilhado entre os `Mensageiro` do mesmo lote do CLI) —
     # evita tentar renovar o token da mesma caixa quebrada a cada toque pendente.
     caixas_invalidas: set[uuid.UUID] = field(default_factory=set)
+    # None = horário real (`datetime.now`); fixo só nos testes da janela de envio.
+    agora: datetime | None = None
 
 
 @dataclass
@@ -161,6 +181,9 @@ class Mensageiro:
             or linha.canal != "email"
         ):
             return None  # nada pendente, ou não é um toque que o Mensageiro sabe enviar
+
+        if not dentro_da_janela_de_envio(self.deps.agora):
+            return "fora_da_janela_de_envio"
 
         if linha.guardiao_resultado is None:
             await Guardiao(
